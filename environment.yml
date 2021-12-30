@@ -1,0 +1,12 @@
+name: mlis-project
+ 
+dependencies:
+    - python=3.9
+    - pip>=19.0
+    - jupyter
+    - scikit-learn
+    - scipy
+    - pandas
+    - pandas-datareader
+    - matplotlib
+    - seaborn
