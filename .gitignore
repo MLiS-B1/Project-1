@@ -130,3 +130,6 @@ dmypy.json
 
 # MacOS Finder files
 .DS_Store
+
+# Vimspector
+.vimspector.json
