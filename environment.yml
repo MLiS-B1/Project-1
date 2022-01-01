@@ -4,6 +4,8 @@ dependencies:
     - python=3.9
     - pip>=19.0
     - jupyter
+    - jupyterlab
+    - nb_conda_kernels
     - scikit-learn
     - scipy
     - pandas
