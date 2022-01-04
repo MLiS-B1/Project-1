@@ -20,7 +20,11 @@
 # %%
 import pandas as pd
 import numpy as np
+
 import matplotlib.pyplot as plt
+import seaborn as sns
+import plotly.express as px
+
 import ipywidgets as widgets
 import re
 
@@ -31,7 +35,7 @@ import re
 # Data will be processed and output as a new csv.
 
 # %%
-feature_names = [
+col_names = [
     "clumpThickness",
     "uniformityOfCellSize",
     "uniformityOfCellShape",
@@ -46,7 +50,7 @@ feature_names = [
 
 data = pd.read_csv(
     "../data/dataset.csv",
-    names=feature_names,
+    names=col_names,
     na_values=["?"]
 )
 
@@ -107,7 +111,7 @@ np.count_nonzero(data.isna())
 
 # %%
 data.dropna(axis='index', how='any', inplace=True)
-data
+data = data.astype('Int64')
 
 # %% [markdown] jp-MarkdownHeadingCollapsed=true tags=[]
 # ## Visualise the ratio of classes
@@ -126,12 +130,21 @@ n_malig = bin_vals[1]
 ratio = n_benign / (n_benign + n_malig) * 100
 print(f"The dataset is comprised of {ratio:.2f}% beingn examples and {100-ratio:.2f}% malignant examples.")
 
-
 # %% [markdown]
 # There is an inbalance in the data; approximately 2/3 of the data are the negative class (benign). However it is not too bad/significant.
 
 # %% [markdown] tags=[]
 # ## Visualising the features
+
+# %% [markdown]
+# We can view all the features together using a scatter matrix.
+
+# %%
+fig = px.scatter_matrix(data,
+    width=1200, height=1600
+)
+fig.show()
+
 
 # %%
 def draw_histogram(feature_index):
@@ -141,7 +154,8 @@ def draw_histogram(feature_index):
     figure.suptitle(f'Histogram and boxplot for {title}')
     
     # Plot a histogram with a nice title and labels
-    his.hist(data.iloc[:, feature_index], ec="k")
+    sns.histplot(data.iloc[:, feature_index], ax=his, kde=True)
+    # his.hist(data.iloc[:, feature_index], ec="k")
     his.set_xlabel(data.columns[feature_index])
     his.set_ylabel("Count")
 
@@ -160,6 +174,7 @@ corr = data.corr()
 corr.style.background_gradient(cmap='coolwarm')
 
 # %% [markdown] jp-MarkdownHeadingCollapsed=true tags=[]
-# # 5. Conclusion
+# # 5. Export
 
 # %%
+data.to_csv("../data/data-processed.csv", index=False)
