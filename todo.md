@@ -1,5 +1,11 @@
 # Project todos.
 
+## Data information
+
+- 10 features
+- Discrete interval data from 1-10
+- Binary target encoded as 2 for the negative case and 4 for the positive
+
 ## Decide on the methods to use
 
 Some inspiration [here](https://towardsdatascience.com/an-overview-of-different-unsupervised-learning-techniques-facb1e1f3a27).
@@ -21,7 +27,8 @@ Options include:
 - Density based clustering
 	- DBSCAN
 - Centroid clustering
-	- K-means
+	- [x] K-means
 - Expectation-maximization based clustering
 	- GMM
 	- ???
+   

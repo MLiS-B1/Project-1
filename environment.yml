@@ -12,3 +12,4 @@ dependencies:
     - pandas-datareader
     - matplotlib
     - seaborn
+    - jupytext
