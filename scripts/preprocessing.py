@@ -113,7 +113,13 @@ np.count_nonzero(data.isna())
 data.dropna(axis='index', how='any', inplace=True)
 data = data.astype('Int64')
 
-# %% [markdown] jp-MarkdownHeadingCollapsed=true tags=[]
+# %% [markdown]
+# ## Consider duplicate values
+
+# %%
+data[data["class"] == 10].any().any() == False
+
+# %% [markdown] jp-MarkdownHeadingCollapsed=true tags=[] jp-MarkdownHeadingCollapsed=true
 # ## Visualise the ratio of classes
 #
 # The proportion of positive to negative class (malignant to benign cases) can be visualised using a historgram. Note since the target is now binarized the values will only be 0 or 1.
@@ -127,11 +133,11 @@ plt.show()
 n_benign = bin_vals[0]
 n_malig = bin_vals[1]
 
-ratio = n_benign / (n_benign + n_malig) * 100
-print(f"The dataset is comprised of {ratio:.2f}% beingn examples and {100-ratio:.2f}% malignant examples.")
+ratio = n_benign / n_malig
+print(f"The dataset is comprised of {ratio:.2f}:1 benign to malignant examples")
 
 # %% [markdown]
-# There is an inbalance in the data; approximately 2/3 of the data are the negative class (benign). However it is not too bad/significant.
+# There is an inbalance in the data; approximately 2/3 of the data are the negative class (benign). This is not considered significant enough to correct using subsampling or resampling techniques.
 
 # %% [markdown] tags=[]
 # ## Visualising the features
@@ -139,32 +145,71 @@ print(f"The dataset is comprised of {ratio:.2f}% beingn examples and {100-ratio:
 # %% [markdown]
 # We can view all the features together using a scatter matrix.
 
-# %%
+# %% jupyter={"outputs_hidden": true} tags=[]
 fig = px.scatter_matrix(data,
     width=1200, height=1600
 )
 fig.show()
 
+# %%
+data.iloc[:, 1].var()
+
 
 # %%
-def draw_histogram(feature_index):
+def draw_histogram(feature_index, hist_type):
     title = re.sub('([A-Z]+)', r' \1', data.columns[feature_index]).lower()
 
     figure, (his, box) = plt.subplots(1, 2, figsize=(15, 8))
     figure.suptitle(f'Histogram and boxplot for {title}')
     
+    if hist_type == "all":
+        hist_data = data.iloc[:, feature_index]
+    elif hist_type == "benign":
+        hist_data = data[data["class"] == 0].iloc[:, feature_index]
+    elif hist_type == "malignant":
+        hist_data = data[data["class"] == 1].iloc[:, feature_index]
+    
     # Plot a histogram with a nice title and labels
-    sns.histplot(data.iloc[:, feature_index], ax=his, kde=True)
-    # his.hist(data.iloc[:, feature_index], ec="k")
-    his.set_xlabel(data.columns[feature_index])
+    sns.histplot(hist_data, ax=his, kde=True)
+    his.set_xlabel(title)
     his.set_ylabel("Count")
 
-    box.boxplot(data.iloc[:, feature_index], notch=True)
+    box.boxplot([
+        data.iloc[:, feature_index],
+        data[data["class"] == 0].iloc[:, feature_index],
+        data[data["class"] == 1].iloc[:, feature_index]
+    ], notch=True)
     box.set_yticks(range(11))
+    box.set_xticks((1, 2, 3), ["All classes", "Benign", "Malignant"])
+    
+    print(f"{title}:")
+    skew = data.iloc[:, feature_index].skew()
+    print(f"\tSkew\t\t\t{skew:.2f}")
+    
+    # Calculate the column mean and variance
+    g_mean = data.iloc[:, feature_index].mean()
+    g_var = data.iloc[:, feature_index].var()
+    print(f"\tGlobal variance\t\t{g_var:.2f}\n\tGlobal mean\t\t{g_mean:.2f}")
+    
+    # Calculate the mean and variance for benign and malignant cases
+    b_var = data[data["class"] == 0].iloc[:, feature_index].var()
+    b_mean = data[data["class"] == 0].iloc[:, feature_index].mean()
+    print(f"\tBenign variance\t\t{b_var:.2f}\n\tBenign mean\t\t{b_mean:.2f}")
+    
+    m_var = data[data["class"] == 1].iloc[:, feature_index].var()
+    m_mean = data[data["class"] == 1].iloc[:, feature_index].mean()
+    print(f"\tMalignant variance\t{m_var:.2f}\n\tMalignant mean\t\t{m_mean:.2f}")
 
 
 # %%
-widgets.interact(draw_histogram, feature_index=widgets.IntSlider(min=0, max=8))
+widgets.interact(
+    draw_histogram, 
+    feature_index=widgets.IntSlider(min=0, max=8),
+    hist_type=widgets.RadioButtons(
+        options=["all", "benign", "malignant"],
+        description="Histogram values"
+    )
+)
 
 # %% [markdown] jp-MarkdownHeadingCollapsed=true tags=[]
 # # 4. Correlation Matrix

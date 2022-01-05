@@ -74,6 +74,11 @@ fig.update_layout(title="Inertia vs Cluster Number",xaxis=dict(range=[0,11],titl
 # ## Custom implementation of K-Means
 
 # %%
+# Find the closest cluster for each point
+def closest_cluster(row, centers=None, distance_function=None):
+    dists = dict(zip(range(len(centers)), map(distance_function, centers, repeat(row.values))))
+    return min(dists, key=lambda x: dists[x])
+
 def KMeansModel(
     data, 
     K, 
@@ -87,26 +92,32 @@ def KMeansModel(
     # Define which columns are features
     features = list(data.columns)[:-1]
     
-    # Get three random centers
-    centers = data[features].sample(n=K).values
+    # Get K random centers (not duplicates)
+    centers = data[features].sample(n=K)
+    while centers.duplicated().any().any():
+        centers = data[features].sample(n=K)    
+    
+    centers = centers.values
     
     # Set a new column to store the cluster that each point belongs to
     data["clusterIndex"] = 0
-    
+        
     complete = False
     while not complete:
+
         # Assign each point to the center
-        for point_index, point in data[features].iterrows():
-            point_center_dists = {}
-            for center_index, center in enumerate(centers):
-                point_center_dists[center_index] = distance(point.values, center)
-            data.loc[point_index, "clusterIndex"] = min(point_center_dists, key=lambda x: point_center_dists[x])
+        data["clusterIndex"] = data[features].apply(
+            closest_cluster, 
+            axis=1, 
+            centers=centers, 
+            distance_function=distance
+        )
 
         # Update the centers position based on its points
         new_centers = np.zeros((K, len(features)))
         for i in range(K):
             cluster_points = data[data["clusterIndex"] == i]
-            cluster_mean = cluster_points[features].mean().values        
+            cluster_mean = cluster_points[features].mean().values
             new_centers[i, :] = cluster_mean
 
         # If the new means are equal to the previous then we have converged to a solution
@@ -124,31 +135,52 @@ def KMeansModel(
         # Update the inertia with the squared distance
         inertia += distance(point[features].values, center)
     
-    return inertia, centers
-
+    # Calculate the cluster purity
+    purities = np.zeros((K, 1))
+    for i, _ in enumerate(centers):
+        subset = data[data["clusterIndex"] == i]
+        mode_class = subset["class"].mode().values[0]
+        subset_mode_class = subset[subset["class"] == mode_class]
+        purities[i] = subset_mode_class.shape[0] / subset.shape[0]
+        
+    
+    return inertia, centers, purities
 
 # %%
-inertia, _ = KMeansModel(copy(data), 3)
-inertia
+inertia, centers, purities = KMeansModel(copy(data), 2)
 
 # %% [markdown]
 # ## Elbow diagram generation
 
-# %%
+# %% [markdown]
+# The mean cluster purity is broken rn
+
+# %% tags=[]
 inertias = []
 centers = []
+purities = []
 
-n_epochs = 5
-cluster_range = range(1, 6)
+n_epochs = 20
+cluster_range = range(1, 9)
 
 for i in cluster_range:
     print(f"Clustering with k = {i}")
     k_inertia = []
+    k_centers = []
+    k_purity = []
     for ep in tqdm(range(n_epochs)):
-        ep_inertia, _ = KMeansModel(copy(data), i)
+        ep_inertia, ep_centers, ep_purity = KMeansModel(copy(data), i)
         k_inertia.append(ep_inertia)
+        k_centers.append(ep_centers)
+        k_purity.append(ep_purity)
     
-    inertias.append(np.mean(k_inertia))
+    mean_inertia = np.mean(k_inertia)
+    mean_centers = np.mean(np.stack(k_centers, axis=2), axis=2)
+    mean_purity = np.mean(k_purity, axis=0)
+    
+    centers.append(mean_centers)
+    inertias.append(mean_inertia)
+    purities.append(mean_purity)
 
 # %%
 plt.plot(cluster_range, inertias, marker="o")
@@ -161,9 +193,6 @@ plt.show()
 
 # %% [markdown]
 # A clear elbow point is visible at $k=2$
-
-# %% [markdown]
-# # All below this is usless
 
 # %%
 pca_2 = PCA(n_components=2)
