@@ -62,28 +62,24 @@ data.head()
 # 1. Data exploration
 #     - [x] Binarize target variable
 #     - [x] Missing values
-#         - [ ] Replace by suitable estimate or
+#         - [ ] Imputation
 #         - [x] Discard
 #     - [x] [Visualise the ratio of classes](#Visualise-the-ratio-of-classes)
 #     - [x] Look at each feature
 #         - Box plot
 #         - Outliers
 # 2. Normalization
-#     - Might not be possible - look into
+#     - [x] Not necessary
 # 3. Skewing
-#     - Check to see if the data are skewed towards some values
+#     - [ ] Measure the skew
+#     - [x] Note that correcting the skew in the features is unnecessary
 # 3. Correlation matrix
-#     - Analyse the correlation between features and target; features and features
-# 4. Feature selection
-#     - Weakly correlated features can be discarded
-#     - Duplicated features can be discarded
-#     - PCA, RCA, ICA in a separate script    
-#     - LDA for dimensionallity reduction
+#     - [ ] Analyse the correlation between features and target; features and features
 
 # %% [markdown] jp-MarkdownHeadingCollapsed=true tags=[]
 # # 1. Data exploration
 
-# %% [markdown] tags=[]
+# %% [markdown] tags=[] jp-MarkdownHeadingCollapsed=true
 # ## Binarize the target variable
 #
 # The dataset is labelled as 2 indicating a benign tumour, and 4 indicating a malignant one. Firstly we will binarize this target label into 0 for benign and 1 for malignant.
@@ -91,7 +87,7 @@ data.head()
 # %%
 data["class"] = (data["class"] > 2).astype('int')
 
-# %% [markdown] jp-MarkdownHeadingCollapsed=true tags=[]
+# %% [markdown] jp-MarkdownHeadingCollapsed=true tags=[] jp-MarkdownHeadingCollapsed=true
 # ## Consider missing values
 #
 # Next we can look for missing values in our data. The missing values in the data are labelled with `?`, which is passed to the csv reader to parse as `NaN`. When `NaN` is present in a column of `int64` the dtype is cast to float, so columns with `NaN` values will be of type `float64`.
@@ -113,13 +109,13 @@ np.count_nonzero(data.isna())
 data.dropna(axis='index', how='any', inplace=True)
 data = data.astype('Int64')
 
-# %% [markdown]
+# %% [markdown] jp-MarkdownHeadingCollapsed=true tags=[]
 # ## Consider duplicate values
 
 # %%
 data[data["class"] == 10].any().any() == False
 
-# %% [markdown] jp-MarkdownHeadingCollapsed=true tags=[] jp-MarkdownHeadingCollapsed=true
+# %% [markdown] jp-MarkdownHeadingCollapsed=true tags=[] jp-MarkdownHeadingCollapsed=true jp-MarkdownHeadingCollapsed=true tags=[]
 # ## Visualise the ratio of classes
 #
 # The proportion of positive to negative class (malignant to benign cases) can be visualised using a historgram. Note since the target is now binarized the values will only be 0 or 1.
@@ -145,7 +141,7 @@ print(f"The dataset is comprised of {ratio:.2f}:1 benign to malignant examples")
 # %% [markdown]
 # We can view all the features together using a scatter matrix.
 
-# %% jupyter={"outputs_hidden": true} tags=[]
+# %% tags=[] jupyter={"outputs_hidden": true}
 fig = px.scatter_matrix(data,
     width=1200, height=1600
 )
@@ -155,7 +151,7 @@ fig.show()
 data.iloc[:, 1].var()
 
 
-# %%
+# %% jupyter={"source_hidden": true} tags=[]
 def draw_histogram(feature_index, hist_type):
     title = re.sub('([A-Z]+)', r' \1', data.columns[feature_index]).lower()
 
@@ -201,7 +197,7 @@ def draw_histogram(feature_index, hist_type):
     print(f"\tMalignant variance\t{m_var:.2f}\n\tMalignant mean\t\t{m_mean:.2f}")
 
 
-# %%
+# %% tags=[]
 widgets.interact(
     draw_histogram, 
     feature_index=widgets.IntSlider(min=0, max=8),
@@ -210,6 +206,19 @@ widgets.interact(
         description="Histogram values"
     )
 )
+
+# %% [markdown] tags=[]
+# # 2. Normalization 
+
+# %% [markdown]
+# Normalization is the process by which a distribution is converted into a normal or approximately normal one; centered at $\mu=0$ and scaled to $\sigma=1$. 
+#
+# None of the features in this dataset currently approximate a normal distribution at all; there is a high degree of skew across all the features, with many being bimodal. This is as a result of the design of the scale; 1 represents a low probability of malignancy and 10 represents a high chance. 
+#
+# Due to the design of this dataset, with each feature being ranked on the same scale it is not necessary for distance-based techniques (such as K-Means) to normalize or rescale the features as they already span the same scale.
+
+# %% [markdown] tags=[]
+# # 3. Skew
 
 # %% [markdown] jp-MarkdownHeadingCollapsed=true tags=[]
 # # 4. Correlation Matrix
