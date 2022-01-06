@@ -95,7 +95,7 @@ def KMeansModel(
     if distance == "euclidean":
         distance = lambda x, p : np.sqrt(np.sum((x - p) ** 2)) 
     elif distance == "manhattan":
-        distance = lambda x, p : np.abs(np.sum(x - p))
+        distance = lambda x, p : np.sum(np.abs(x - p))
     else:
         raise ValueError("Argument 'distance' must be either 'euclidean' or 'manhattan'.")
                                          
