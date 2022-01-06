@@ -1,19 +1,19 @@
 # Project todos.
 
-- [ ] Conduct a literature search of all the papers written on the WBC dataset and on discrere intervaled data in
-	general. Upload all papers to the `Report-1` repository
-- [ ] Decide on what type of normalization and dimensionallity reduction to use.
-	- Is it valid to treat our data as real-valued instead of being discrete intervals? 
-	- Does dimensionallity reduction such as PCA or LDA work on the type of data that we have? 
-	- Can our data be transformed to be normally distributed, or does it follow another distribution? 
-	- How do we treat the fact that our data come from two classes; can you split the dataset into one set for benign and another for malignant?
-	- How does that change the analyses we can do?
+- [x] Conduct a literature search of all the papers written on the WBC dataset and on discrere intervaled data in general. Upload all papers to the `Report-1` repository
+- [x] Decide on what type of normalization and dimensionallity reduction to use.
+	- [x] Is it valid to treat our data as real-valued instead of being discrete intervals? NO
+	- [x] Does dimensionallity reduction such as PCA or LDA work on the type of data that we have? YES
+	- [x] Can our data be transformed to be normally distributed, or does it follow another distribution? NO
+	- [x] How do we treat the fact that our data come from two classes; can you split the dataset into one set for benign and another for malignant? WE DONT
+	- [x] How does that change the analyses we can do? LONG ANSWER
 - [x] Generate visualisations of the features 
+- [x] Implement K-Means
+- [ ] Implement GMM
 - [ ] Implement some kind of dimensionallity reduction
 - [ ] Generate visualisations of the reduced dimension dataset
-- [x] Implement K-Means
-- [ ] Implement another clustering method (GMM, DBSCAN, heriachical clustering)
 - [ ] Generate visualisations of clustering techniques
+- [ ] Implement another clustering method (DBSCAN, heriachical clustering)
 - [ ] Look into autoencoders or other ANN-based unsupervised techniques
 
 ## Dimensionallity reuction
