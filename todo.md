@@ -25,6 +25,13 @@ possible as none of the features are normally distributed. This isnt an assumpti
 properly the features need to be entirely linearly independent. This is probably not the case, and so care must be
 taken.
 
+### Types of analysis to consider
+
+- Principal Component
+- Individual Component
+- Linear Discriminant
+- Exploratory Factor
+
 ## Clustering
 
 K-Means is already implemented, with the optimal number of clusters being 2 or 3. It is impossible to visualise the
