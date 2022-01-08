@@ -94,17 +94,30 @@ sns.scatterplot(x=res['PC1'], y=res['PC2'], s=10 * np.exp(res["PC3"]), hue=res['
 
 # %%
 def drawax3d(elevation, rotation, comp4scale):
+    # Rescale PC4 to contain values in the interval [0, infty)
     rescale_component = lambda x: np.abs(res["PC4"].min()) + 1e-4 + comp4scale * x
-
     
+    # Get the values for feature f which has label l
+    resset = lambda f, l: res[res["Y"] == l][f]
+    
+    # Create a plot and 3d axes
     fig = plt.figure(figsize=(15, 15))
     ax = plt.axes(projection="3d")
 
-    ax.scatter3D(res["PC1"], res["PC2"], res["PC3"], c=res["Y"], s=rescale_component(res["PC4"]))
+    # Create an artist for each of the benign and malignant cases
+    ax.scatter3D(resset("PC1", 0), resset("PC2", 0), resset("PC3", 0), s=rescale_component(resset("PC4", 0)), label="Benign")
+    ax.scatter3D(resset("PC1", 1), resset("PC2", 1), resset("PC3", 1), s=rescale_component(resset("PC4", 1)), label="Malignant")
+    
+    # Set the rotation and axes labels
     ax.view_init(elevation, rotation)
     ax.set_xlabel("PC1")
     ax.set_ylabel("PC2")
     ax.set_zlabel("PC3")
+    
+    # Display the legend
+    ax.legend(loc=1)
+    
+    
 
 # %%
 widgets.interact(
