@@ -91,16 +91,20 @@ widgets.interact(
 plt.figure(figsize=(20, 10))
 sns.scatterplot(x=res['PC1'], y=res['PC2'], s=10 * np.exp(res["PC3"]), hue=res['Y'])       #3D
 
-# %%
-rescale_component = lambda x: np.abs(res["PC4"].min()) + 1e-5 + comp4scale * x
 
+# %%
 def drawax3d(elevation, rotation, comp4scale):
+    rescale_component = lambda x: np.abs(res["PC4"].min()) + 1e-4 + comp4scale * x
+
+    
     fig = plt.figure(figsize=(15, 15))
     ax = plt.axes(projection="3d")
 
-    ax.scatter3D(res["PC1"], res["PC2"], res["PC3"], c=res["Y"], s=(np.abs(res["PC4"].min()) + 1e-5 + comp4scale * res["PC4"]))
+    ax.scatter3D(res["PC1"], res["PC2"], res["PC3"], c=res["Y"], s=rescale_component(res["PC4"]))
     ax.view_init(elevation, rotation)
-
+    ax.set_xlabel("PC1")
+    ax.set_ylabel("PC2")
+    ax.set_zlabel("PC3")
 
 # %%
 widgets.interact(
