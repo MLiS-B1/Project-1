@@ -114,4 +114,8 @@ widgets.interact(
     comp4scale=widgets.IntSlider(min=1, max=100, value=20)
 )
 
+# %% [markdown]
+# # Data export
+
 # %%
+res.to_csv("../data/data-pca.csv", index=False)
