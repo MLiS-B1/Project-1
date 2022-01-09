@@ -66,7 +66,7 @@ res['PC4'] = X.dot(vectors.T[3])
 res['PC5'] = X.dot(vectors.T[4])
 res['PC6'] = X.dot(vectors.T[5])
 res['PC7'] = X.dot(vectors.T[6])
-res['Y'] = y
+res['class'] = y
 
 res
 
@@ -77,7 +77,7 @@ def plotpc(component):
     label = f"PC{component}"
     
     plt.figure(figsize=(20, 10))
-    sns.scatterplot(x=res[label], y=[0] * len(res), hue=res['Y'], s=100)
+    sns.scatterplot(x=res[label], y=[0] * len(res), hue=res['class'], s=100)
 
 
 # %%
@@ -89,7 +89,7 @@ widgets.interact(
 # %%
 #2D plot
 plt.figure(figsize=(20, 10))
-sns.scatterplot(x=res['PC1'], y=res['PC2'], s=10 * np.exp(res["PC3"]), hue=res['Y'])       #3D
+sns.scatterplot(x=res['PC1'], y=res['PC2'], s=10 * np.exp(res["PC3"]), hue=res['class'])       #3D
 
 
 # %%
@@ -98,7 +98,7 @@ def drawax3d(elevation, rotation, comp4scale):
     rescale_component = lambda x: np.abs(res["PC4"].min()) + 1e-4 + comp4scale * x
     
     # Get the values for feature f which has label l
-    resset = lambda f, l: res[res["Y"] == l][f]
+    resset = lambda f, l: res[res["class"] == l][f]
     
     # Create a plot and 3d axes
     fig = plt.figure(figsize=(15, 15))
@@ -116,8 +116,7 @@ def drawax3d(elevation, rotation, comp4scale):
     
     # Display the legend
     ax.legend(loc=1)
-    
-    
+
 
 # %%
 widgets.interact(
