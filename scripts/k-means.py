@@ -23,7 +23,7 @@ from itertools import repeat
 
 import seaborn as sns
 
-from tqdm.notebook import tqdm~
+from tqdm.notebook import tqdm
 
 import ipywidgets as widgets
 
@@ -314,7 +314,3 @@ widgets.interact(
     )
 )
 None
-
-# %%
-
-# %%
