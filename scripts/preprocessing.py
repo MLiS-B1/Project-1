@@ -141,17 +141,17 @@ print(f"The dataset is comprised of {ratio:.2f}:1 benign to malignant examples")
 # %% [markdown]
 # We can view all the features together using a scatter matrix.
 
-# %% tags=[] jupyter={"outputs_hidden": true}
+# %% tags=[]
 fig = px.scatter_matrix(data,
     width=1200, height=1600
 )
 fig.show()
 
-# %%
+# %% tags=[]
 data.iloc[:, 1].var()
 
 
-# %% jupyter={"source_hidden": true} tags=[]
+# %% tags=[]
 def draw_histogram(feature_index, hist_type):
     title = re.sub('([A-Z]+)', r' \1', data.columns[feature_index]).lower()
 
