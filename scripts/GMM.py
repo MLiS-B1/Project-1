@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 # ---
 # jupyter:
 #   jupytext:
@@ -14,6 +15,14 @@
 # ---
 
 # %% [markdown]
+# # This text is mostly bullshit, needs rewriting
+
+# %% [markdown]
+# ### todo:
+# - Make the plot interactive to view by point probability
+# - 3d contour plot of the gaussians
+
+# %% [markdown] jp-MarkdownHeadingCollapsed=true tags=[]
 # # Gaussian Mixture Model
 #
 # This method assumes that in each class the data are distributed normally across each of the features, in other words the distribution sampled by the data is expressable as a composition of Gaussians.
@@ -58,15 +67,23 @@ import pandas as pd
 import numpy as np
 
 from copy import copy
-from statistics import NormalDist
-
 import matplotlib.pyplot as plt
+import ipywidgets as widgets
+
+# %% [markdown] tags=[]
+# # Data handling
 
 # %% tags=[]
-full_data = pd.read_csv("../data/data-pca.csv")
-cols = ["PC1", "PC2", "class"]
-data = full_data[cols]
+data = pd.read_csv("../data/data-pca.csv")
+d2_cols = ["PC1", "PC2", "class"]
+data = full_data[d2_cols]
 
+
+# %% [markdown] tags=[]
+# # GMM definition
+
+# %% [markdown] jp-MarkdownHeadingCollapsed=true tags=[]
+# ## Object definitions
 
 # %%
 class Model():
@@ -81,7 +98,7 @@ class Model():
         self.it = 1
     
     def plot_likelihood(self):
-        plt.plot(range(self.it-1), self.trace_likelihood, label="Likelihood")
+        plt.plot(range(self.it), self.trace_likelihood, label="Likelihood")
         plt.legend()
 
 
@@ -102,6 +119,9 @@ class Gaussian():
         return f"<Gaussian with mean {self.mean}>"
 
 
+# %% [markdown] tags=[]
+# ## Statistical functions
+
 # %%
 def evaluate_pdf(x, gauss):
     # Assert that the covariance matrix is invertible (positive definite?)
@@ -114,17 +134,12 @@ def evaluate_pdf(x, gauss):
 
 
 # %%
-from scipy.stats import multivariate_normal
-
-
-# %%
 def responsibility(x, model):
     # Function to calculate the responsibility vector for a given x
     # This can and should be vectorized further
     resp = np.zeros((model.K))
     for i, cluster in enumerate(model.clusters):
-        # resp[i] = model.cluster_weights[i] * evaluate_pdf(x.values, cluster)
-        resp[i] = model.cluster_weights[i] * multivariate_normal(cluster.mean, cluster.cov).pdf(x.values)
+        resp[i] = model.cluster_weights[i] * evaluate_pdf(x.values, cluster)
 
     return resp/resp.sum()
 
@@ -133,54 +148,58 @@ def responsibility(x, model):
 def compute_likelihood(x, model):
     point_likelihoods = []
     for i, cluster in enumerate(model.clusters):
-        probability = multivariate_normal(cluster.mean, cluster.cov).pdf(x)
+        probability = evaluate_pdf(x, Gaussian(cluster.mean, cluster.cov))
         point_likelihoods.append(model.cluster_weights[i] * probability)
     return np.log(np.sum(point_likelihoods))
 
 
+# %% [markdown] jp-MarkdownHeadingCollapsed=true tags=[]
+# ## EM algorithm
+
 # %%
-def GMM(data, K, prior=None, seed=40, maxiter=1e2):    
+def GMM(data, K, seed=42, maxiter=1e3, stop_threshold=1e-3):  
+    # Set the model seed
+    np.random.seed(seed)
+    
+    # Create a model to store the data in
     model = Model(K=K)
     
-    # Define which columns are features
+    # Define which columns are features and data properties
     features = list(data.columns)[:-1]
-    n_dims = len(features)  
+    X = data[features].values
+    n_instances, n_dims = X.shape
     
-    # Get K random centers (not duplicates)
-    center_means = data[features].sample(n=K)
-    while center_means.duplicated().any().any():
-        center_means = data[features].sample(n=K)    
+    # Get K random centers 
+    indices = np.random.choice(n_instances, K, replace=False)
+    center_means = X[indices]
     
-    np.random.seed(seed)
-    chosen = np.random.choice(data.shape[0], model.K, replace = False)
-    center_means = data[features].values[chosen]
-    
-    # Initialise the centers with mean=m and sd=1
+    # Initialise the centers using the covariance of the entire dataset
+    # Can also initialise in other ways
     model.clusters = [
         Gaussian(
             i, 
-            np.cov(data[features].values, rowvar=False)
+            np.cov(X, rowvar=False)
         ) 
         for i in center_means
     ]
             
     # Initialise the cluster weights and normalize
-    model.cluster_weights = np.ones((model.K)) / model.K    
+    model.cluster_weights = np.ones(K) / K    
     
     # Matrix to store the responsibilities
-    model.responsibility = np.zeros((data.shape[0], K))
+    model.responsibility = np.zeros((n_instances, K))
     
-    # Initialize the likelihood
+    # Initialize the likelihood to ensure the stop condition
+    # is not met on the first iteration
     model.likelihood = -np.inf
     
-    if prior:
-        model = prior
-        
+    converged = False
     complete = False
     while not complete:     
-        ##########
-        # E STEP #
-        ##########
+        """
+        E-step: Calculate the posterior probabilities given the clusters we have.
+                Compute the likelihood given these clusters and weights
+        """
         # Calculate the responsibility matrix  
         new_resp = np.stack(
             data[features].apply(
@@ -198,16 +217,18 @@ def GMM(data, K, prior=None, seed=40, maxiter=1e2):
                 model=model
         ).values)
         
-        ##########
-        # M STEP #
-        ##########
+        """
+        M-step: Update the mean, covariance matricies and weights of the Gaussians to
+                increase the value of the log-likelihood, based on the posterior 
+                probability calcualted.
+        """
         new_gaussians = []
         new_weights = []
         for i in range(model.K):
             x = data[features].values
             r = new_resp[:, i]
             sum_r = np.sum(r)
-            N_k = len(r)
+            N_k = x.shape[0]
             
             # Calculate weights
             pi = sum_r / N_k
@@ -218,7 +239,7 @@ def GMM(data, K, prior=None, seed=40, maxiter=1e2):
                                     
             # Calculate covariance matrices
             outer_product = lambda x: np.outer(x, x.T)
-            x_outer_products = np.apply_along_axis(outer_product, 1, x)
+            x_outer_products = np.apply_along_axis(outer_product, 1, (x - mu))
             r_broadcast = r.reshape(r.shape[0], 1, 1)
             sigma = (1 / sum_r) * np.sum((r_broadcast * x_outer_products), axis=0)
                         
@@ -226,100 +247,77 @@ def GMM(data, K, prior=None, seed=40, maxiter=1e2):
             new_weights.append(pi)
             
             # Create new gaussians
-            new_gaussians.append(Gaussian(mean=mu, cov_mat=sigma))
+            new_gaussians.append(Gaussian(mean=mu, cov_mat=sigma))      
         
-        # Update the model
+        
+        # Check if the stop conditions of the model have been reached
+        if np.abs(likelihood - model.likelihood) < stop_threshold:
+            converged = True
+            complete = True
+        elif model.it >= maxiter:
+            complete = True
+        else:
+            model.it += 1 # If not then update the iteration counter
+        
+        # Save the new values to the model
         model.clusters = new_gaussians
         model.cluster_weights = new_weights
         model.responsibility = new_resp
-        
-        # Stop condition
-        if np.abs(likelihood - model.likelihood) < 1e-2 or model.it >= maxiter:
-            complete = True
-            
         model.likelihood = likelihood
         
-        model.trace_mean.append([i.mean for i in model.clusters])
+        # Save the likelihood history for visualisation
         model.trace_likelihood.append(likelihood)
-        print(f"Iteration {model.it}", end="\r")
         
-        # Update the iteration counter
-        model.it += 1
+        # Display the iteration and update the counter
+        print(f"Iteration {model.it}", end="\r")
 
     
-    print(f"Completed in {model.it-1} iterations")
+    print(f"Completed in {model.it} iterations")
     return model
 
+# %% [markdown]
+# # Fit and result
+
 # %%
-model2 = GMM(copy(data), 2, maxiter=40)
+gmm_model = GMM(data[d2_cols], 2)
+gmm_model.plot_likelihood()
 
-# %% tags=[]
-model2.plot_likelihood()
+# %% [markdown]
+# ## Visualise clusters
 
-# %% tags=[]
-import ipywidgets as widgets
+# %%
+from functools import partial
+
+# %%
+# Generate partial functions to be used with vectorizing
+samplers = [partial(evaluate_pdf, gauss=Gaussian(i.mean, i.cov)) for i in gmm_model.clusters]
+class_data = lambda f, l: data[data["class"] == l][f]
+
 
 # %% tags=[]
 # From http://ethen8181.github.io/machine-learning/clustering/GMM/GMM.html
-from scipy.stats import multivariate_normal
-def plot_gaussians(x_min, x_max, y_min, y_max, model):
-    x, y = np.mgrid[x_min:x_max:.1, y_min:y_max:.1]
+def plot_gaussians(model, resolution=1e-1):
+    x, y = np.mgrid[-30:0:.1, -10:15:.1]
     position = np.empty(x.shape + (2,))
     position[:, :, 0] = x
     position[:, :, 1] = y
 
     plt.figure(figsize = (15, 6))
-    plt.scatter(data["PC1"], data["PC2"])
-    for i in range(2):
-        # plt.subplot(1, 3, i + 1)
-        z = multivariate_normal(model.clusters[i].mean, model.clusters[i].cov).pdf(position)
-        plt.contour(x, y, z)
+    plt.scatter(class_data("PC1", 0), class_data("PC2", 0), label="Benign cases")
+    plt.scatter(class_data("PC1", 1), class_data("PC2", 1), label="Malignant cases")
 
-    plt.xlim([x_min, x_max])
-    plt.ylim([y_min, y_max])
+    for i in range(2):
+        z = np.apply_along_axis(samplers[i], 2, position)
+        plt.contour(x, y, z, colors="black")
+
+    plt.xlim([-25, 0])
+    plt.ylim([-10, 15])
 
     plt.xlabel("PC1")
     plt.ylabel("PC2")
+    plt.legend(loc=1)
     plt.show()
 
 
 # %% tags=[]
-widgets.interact(
-    plot_gaussians,
-    x_min=widgets.IntSlider(min=-100, max=100, value=-40),
-    x_max=widgets.IntSlider(min=-100, max=100, value=10),
-    y_min=widgets.IntSlider(min=-100, max=100, value=-10),
-    y_max=widgets.IntSlider(min=-100, max=100, value=10),
-    model=widgets.fixed(model2)
-)
-
-
-# %% [markdown]
-# ## Visualise clusters
-
-# %% tags=[] jupyter={"source_hidden": true}
-def plot_contours(data, means, covs, title):
-    """visualize the gaussian components over the data"""
-    plt.figure()
-    plt.plot(data[:, 0], data[:, 1], 'ko')
-
-    delta = 0.025
-    k = means.shape[0]
-    x = np.arange(-25.0, 0.0, delta)
-    y = np.arange(-10.0, 10.0, delta)
-    x_grid, y_grid = np.meshgrid(x, y)
-    coordinates = np.array([x_grid.ravel(), y_grid.ravel()]).T
-
-    col = ['green', 'red', 'indigo']
-    for i in range(k):
-        mean = means[i]
-        cov = covs[i]
-        z_grid = multivariate_normal(mean, cov).pdf(coordinates).reshape(x_grid.shape)
-        plt.contour(x_grid, y_grid, z_grid, colors = col[i])
-
-    plt.title(title)
-    plt.tight_layout()
-
-
-# %%
-features = ["PC1", "PC2"]
+plot_gaussians(gmm_model)
