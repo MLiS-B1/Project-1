@@ -297,7 +297,7 @@ class_data = lambda f, l: data[data["class"] == l][f]
 # %% tags=[]
 # From http://ethen8181.github.io/machine-learning/clustering/GMM/GMM.html
 def plot_gaussians(model, resolution=1e-1):
-    x, y = np.mgrid[-30:0:.1, -10:15:.1]
+    x, y = np.mgrid[-30:0:resolution, -10:15:resolution]
     position = np.empty(x.shape + (2,))
     position[:, :, 0] = x
     position[:, :, 1] = y
@@ -321,3 +321,34 @@ def plot_gaussians(model, resolution=1e-1):
 
 # %% tags=[]
 plot_gaussians(gmm_model)
+
+
+# %%
+def drawax3d(model, resolution=0.1):       
+    # Create a plot and 3d axes
+    fig = plt.figure(figsize=(15, 15))
+    ax = plt.axes(projection="3d")
+    range_pc1 = range(-30, 21)
+    range_pc2 = range(-30, 21)
+    
+    enabled = [False, True]
+    
+    pc1, pc2 = np.mgrid[range_pc1[0]:range_pc1[-1]:resolution, range_pc2[0]:range_pc2[-1]:resolution]
+    position = np.empty(pc1.shape + (2,))
+    position[:, :, 0] = pc1
+    position[:, :, 1] = pc2
+    for i in range(model.K):
+        if not enabled[i]:
+            continue
+        z = np.apply_along_axis(samplers[i], 2, position)
+        ax.contour3D(pc1, pc2, z, 100)
+
+    # Set the rotation and axes labels
+    # ax.view_init(30, rotation)
+    ax.set_xlabel("PC1")
+    ax.set_ylabel("PC2")
+    ax.set_zlabel("Probability")
+
+
+# %%
+drawax3d(gmm_model)
