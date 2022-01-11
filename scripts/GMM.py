@@ -62,11 +62,10 @@ from statistics import NormalDist
 
 import matplotlib.pyplot as plt
 
-# %% jupyter={"source_hidden": true} tags=[]
+# %% tags=[]
 full_data = pd.read_csv("../data/data-pca.csv")
 cols = ["PC1", "PC2", "class"]
 data = full_data[cols]
-data
 
 
 # %%
@@ -77,6 +76,13 @@ class Model():
         self.clusters = clusters
         self.cluster_weights = cluster_weights
         self.responsibility = None
+        self.trace_likelihood = []
+        self.trace_mean = []
+        self.it = 1
+    
+    def plot_likelihood(self):
+        plt.plot(range(self.it-1), self.trace_likelihood, label="Likelihood")
+        plt.legend()
 
 
 # %%
@@ -108,190 +114,212 @@ def evaluate_pdf(x, gauss):
 
 
 # %%
+from scipy.stats import multivariate_normal
+
+
+# %%
 def responsibility(x, model):
     # Function to calculate the responsibility vector for a given x
     # This can and should be vectorized further
     resp = np.zeros((model.K))
     for i, cluster in enumerate(model.clusters):
-        resp[i] = model.cluster_weights[i] * evaluate_pdf(x.values, cluster)
+        # resp[i] = model.cluster_weights[i] * evaluate_pdf(x.values, cluster)
+        resp[i] = model.cluster_weights[i] * multivariate_normal(cluster.mean, cluster.cov).pdf(x.values)
+
     return resp/resp.sum()
 
 
 # %%
-evaluate_pdf(np.array([1, 1]), Gaussian(mean=np.array([6, 6]), cov_mat=np.identity(2)))
+def compute_likelihood(x, model):
+    point_likelihoods = []
+    for i, cluster in enumerate(model.clusters):
+        probability = multivariate_normal(cluster.mean, cluster.cov).pdf(x)
+        point_likelihoods.append(model.cluster_weights[i] * probability)
+    return np.log(np.sum(point_likelihoods))
 
 
 # %%
-def r(x, ga, wa, gb, wb):
-    return wa * evaluate_pdf(x, ga) / (wa * evaluate_pdf(x, ga) + wb * evaluate_pdf(x, gb))
-
-x = np.array([0, 0])
-ga = Gaussian(np.array([1, 1]), 5 * np.identity(2))
-gb = Gaussian(np.array([5, 5]), 5 * np.identity(2))
-wa = wb = 0.5
-
-
-r(x, gb, wb, ga, wa)
-
-# %%
-x = np.array([0, 0])
-u = 0.60281916
-
-np.outer((x - u), (x - u).T)
-
-
-# %%
-def GMM(data, K, prior=None):
+def GMM(data, K, prior=None, seed=40, maxiter=1e2):    
     model = Model(K=K)
     
     # Define which columns are features
     features = list(data.columns)[:-1]
+    n_dims = len(features)  
     
     # Get K random centers (not duplicates)
     center_means = data[features].sample(n=K)
     while center_means.duplicated().any().any():
         center_means = data[features].sample(n=K)    
     
+    np.random.seed(seed)
+    chosen = np.random.choice(data.shape[0], model.K, replace = False)
+    center_means = data[features].values[chosen]
+    
     # Initialise the centers with mean=m and sd=1
-    model.clusters = [Gaussian(i, 5 * np.identity(len(features))) for i in center_means.values]
+    model.clusters = [
+        Gaussian(
+            i, 
+            np.cov(data[features].values, rowvar=False)
+        ) 
+        for i in center_means
+    ]
             
     # Initialise the cluster weights and normalize
-    model.cluster_weights = np.random.uniform(size=(K, 1))
-    model.cluster_weights = model.cluster_weights/model.cluster_weights.sum()
+    model.cluster_weights = np.ones((model.K)) / model.K    
     
     # Matrix to store the responsibilities
     model.responsibility = np.zeros((data.shape[0], K))
     
+    # Initialize the likelihood
+    model.likelihood = -np.inf
+    
     if prior:
         model = prior
-    
-    complete = False
-    it = 0
-    while not complete:
-        # complete = True
-        # print(f"Iteration {it} ------------------")
-        # print("Model clusters (means)")
-        # print([i.mean for i in model.clusters])
-        # print("Model clusters (covariances)") 
-        # for i in model.clusters:
-        #     print("------------")
-        #     print(i.cov)
-        # print("------------")
-        # print("Responsibility")
-        # print(model.responsibility)
-        # print("Weights")
-        # print(model.cluster_weights)
-        # print("FullIter")
         
+    complete = False
+    while not complete:     
+        ##########
+        # E STEP #
+        ##########
         # Calculate the responsibility matrix  
-        # Passes each row of data[features] as the first argument
-        model.responsibility = np.stack(
+        new_resp = np.stack(
             data[features].apply(
                 responsibility, 
                 axis=1, 
                 model=model
             ).values
         )
-            
-        # The responsiblilty matrix can be used to compute the means
-        new_means = np.zeros((model.K, len(features)))
-        # resp_data = np.hstack((model.responsibility, data[features].values))
-        for i, cluster in enumerate(model.clusters):
-            sum_scaled_data = np.zeros((len(features)))
-            sum_responsibilities = 0
-            for j, x in enumerate(data[features].values):
-                sum_scaled_data += x * model.responsibility[j, i]
-                sum_responsibilities += model.responsibility[j, i]
-            # print(f"Cluster {i}")
-            # print(sum_scaled_data)
-            # print(sum_responsibilities)
-            new_means[i, :] = sum_scaled_data / sum_responsibilities
         
-        # Calculate the covariance matrices
-        new_covariance_matrices = np.zeros((len(features), len(features), model.K))
-        for i, cluster in enumerate(model.clusters):
-            sum_covariance_matrix = np.zeros((len(features), len(features)))
-            sum_responsibilities = 0
-            for j, x in enumerate(data[features].values):
-                mu = new_means[i]
-                d = x - mu
-                resp = model.responsibility[j, i]
-                sum_covariance_matrix += resp * (np.outer(d, d.T))
-                sum_responsibilities += resp
-            new_covariance_matrices[:, :, i] = sum_covariance_matrix / sum_responsibilities
-            
-        # Calculate the new weights
-        # new_weights = np.zeros((model.K, 1))
-        new_weights = np.sum(model.responsibility, axis=0) / model.responsibility.shape[0]
-                
-        # Create new clusters
-        new_clusters = [
-            Gaussian(
-                new_means[i, :], 
-                new_covariance_matrices[:, :, i]
-            )
-            for i in range(model.K)
-        ]
-            
-        # Check if the mean has changed  
-        if new_clusters == model.clusters:
-            complete = True
+        # Compute the log likelihood 
+        likelihood = np.sum(
+            data[features].apply(
+                compute_likelihood,
+                axis=1,
+                model=model
+        ).values)
         
-        # Update the centers
-        for i in range(len(model.clusters)):
-            model.clusters[i] = Gaussian(
-                mean=new_means[i, :], 
-                cov_mat=new_covariance_matrices[:, :, i]
-            ) 
+        ##########
+        # M STEP #
+        ##########
+        new_gaussians = []
+        new_weights = []
+        for i in range(model.K):
+            x = data[features].values
+            r = new_resp[:, i]
+            sum_r = np.sum(r)
+            N_k = len(r)
+            
+            # Calculate weights
+            pi = sum_r / N_k
+            
+            # Calculate centers
+            rx = np.multiply(np.vstack([r] * n_dims).T, x)
+            mu = (1 / sum_r) * np.sum(rx, axis=0) 
+                                    
+            # Calculate covariance matrices
+            outer_product = lambda x: np.outer(x, x.T)
+            x_outer_products = np.apply_along_axis(outer_product, 1, x)
+            r_broadcast = r.reshape(r.shape[0], 1, 1)
+            sigma = (1 / sum_r) * np.sum((r_broadcast * x_outer_products), axis=0)
+                        
+            # Save the new weight
+            new_weights.append(pi)
+            
+            # Create new gaussians
+            new_gaussians.append(Gaussian(mean=mu, cov_mat=sigma))
         
-        # Update the weights
+        # Update the model
+        model.clusters = new_gaussians
         model.cluster_weights = new_weights
+        model.responsibility = new_resp
+        
+        # Stop condition
+        if np.abs(likelihood - model.likelihood) < 1e-2 or model.it >= maxiter:
+            complete = True
             
-        it += 1
-    print(f"Completed in {it} iterations")
+        model.likelihood = likelihood
+        
+        model.trace_mean.append([i.mean for i in model.clusters])
+        model.trace_likelihood.append(likelihood)
+        print(f"Iteration {model.it}", end="\r")
+        
+        # Update the iteration counter
+        model.it += 1
+
+    
+    print(f"Completed in {model.it-1} iterations")
     return model
 
-
 # %%
-model = GMM(copy(data).sample(n=680), 2)
+model2 = GMM(copy(data), 2, maxiter=40)
 
-# %%
-model.clusters
+# %% tags=[]
+model2.plot_likelihood()
 
-# %%
+# %% tags=[]
+import ipywidgets as widgets
+
+# %% tags=[]
+# From http://ethen8181.github.io/machine-learning/clustering/GMM/GMM.html
 from scipy.stats import multivariate_normal
+def plot_gaussians(x_min, x_max, y_min, y_max, model):
+    x, y = np.mgrid[x_min:x_max:.1, y_min:y_max:.1]
+    position = np.empty(x.shape + (2,))
+    position[:, :, 0] = x
+    position[:, :, 1] = y
 
-# %%
-x, y = np.mgrid[-30:10:.1, -30:10:.1]
-position = np.empty(x.shape + (2,))
-position[:, :, 0] = x
-position[:, :, 1] = y
+    plt.figure(figsize = (15, 6))
+    plt.scatter(data["PC1"], data["PC2"])
+    for i in range(2):
+        # plt.subplot(1, 3, i + 1)
+        z = multivariate_normal(model.clusters[i].mean, model.clusters[i].cov).pdf(position)
+        plt.contour(x, y, z)
 
-# different values for the covariance matrix
-covariances = [ [[1, 0], [0, 1]], [[1, 0], [0, 3]], [[1, -1], [-1, 3]] ]
-titles = ['spherical', 'diag', 'full']
+    plt.xlim([x_min, x_max])
+    plt.ylim([y_min, y_max])
 
-# %%
-position.shape
+    plt.xlabel("PC1")
+    plt.ylabel("PC2")
+    plt.show()
 
-# %%
-plt.figure(figsize = (15, 6))
-plt.scatter(data["PC1"], data["PC2"])
-for i in range(2):
-    # plt.subplot(1, 3, i + 1)
-    z = multivariate_normal(model.clusters[i].mean, model.clusters[i].cov).pdf(position)
-    plt.contour(x, y, z)
-    plt.xlim([-30, 0])
-    plt.ylim([-10, 12])
 
-plt.show()
+# %% tags=[]
+widgets.interact(
+    plot_gaussians,
+    x_min=widgets.IntSlider(min=-100, max=100, value=-40),
+    x_max=widgets.IntSlider(min=-100, max=100, value=10),
+    y_min=widgets.IntSlider(min=-100, max=100, value=-10),
+    y_max=widgets.IntSlider(min=-100, max=100, value=10),
+    model=widgets.fixed(model2)
+)
 
-# %%
-
-# %% [markdown]
-# ## Gaussian modelling
 
 # %% [markdown]
 # ## Visualise clusters
 
+# %% tags=[] jupyter={"source_hidden": true}
+def plot_contours(data, means, covs, title):
+    """visualize the gaussian components over the data"""
+    plt.figure()
+    plt.plot(data[:, 0], data[:, 1], 'ko')
+
+    delta = 0.025
+    k = means.shape[0]
+    x = np.arange(-25.0, 0.0, delta)
+    y = np.arange(-10.0, 10.0, delta)
+    x_grid, y_grid = np.meshgrid(x, y)
+    coordinates = np.array([x_grid.ravel(), y_grid.ravel()]).T
+
+    col = ['green', 'red', 'indigo']
+    for i in range(k):
+        mean = means[i]
+        cov = covs[i]
+        z_grid = multivariate_normal(mean, cov).pdf(coordinates).reshape(x_grid.shape)
+        plt.contour(x_grid, y_grid, z_grid, colors = col[i])
+
+    plt.title(title)
+    plt.tight_layout()
+
+
 # %%
+features = ["PC1", "PC2"]
