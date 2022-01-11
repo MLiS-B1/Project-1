@@ -21,6 +21,7 @@
 # ### todo:
 # - Make the plot interactive to view by point probability
 # - 3d contour plot of the gaussians
+# - Try GMM on the data that have not been preprocessed (will probably fail badly from singluar matrices)
 
 # %% [markdown] jp-MarkdownHeadingCollapsed=true tags=[]
 # # Gaussian Mixture Model
