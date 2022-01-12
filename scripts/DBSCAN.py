@@ -25,19 +25,15 @@ import matplotlib.pyplot as plt
 
 from functools import partial
 
+# %% [markdown]
+# Import the data to use for the model
+
 # %%
 data = pd.read_csv("../data/data-pca.csv")
 
-# %%
-plt.scatter(data["PC1"], data["PC2"], c=data["class"])
 
-# %%
-data["PC1"].std()
-
-# %%
-radius = 2
-minpts = 10
-
+# %% [markdown]
+# ## Functions
 
 # %%
 def distance(a, b):
@@ -45,10 +41,8 @@ def distance(a, b):
 
 
 # %%
-def find_core_points(x, data, radius, min_pts):
-    d = partial(distance, b=x)
-    distances = np.apply_along_axis(d, 1, data)
-    return min_pts < np.sum(distances < radius)
+def mark_core_point(x, radius, min_pts):
+    return np.sum(x <= radius) >= min_pts
 
 
 # %%
@@ -59,112 +53,86 @@ def compute_distance_to_all_points(x, data):
     return distances
 
 
-# %%
-# Find all the core points
+# %% [markdown]
+# ## Model
 
 # %%
-d = data[["PC1", "PC2"]].values
-cl = partial(find_core_points, data = d, radius=radius, min_pts=minpts)
-core_points = np.apply_along_axis(cl, 1, d)
-
-# %%
-d[core_points].shape
-
-# %%
-n_instances, n_dims = d.shape
-
-# %%
-np.random.seed(42)
-
-# Define an empty set of cluster indices
-cluster = np.full((n_instances), np.nan)
-
-# Define masks to access the assigned and unassigned core points
-assigned_core_points = np.logical_and(core_points, ~np.isnan(cluster))
-unassigned_core_points = np.logical_and(core_points, np.isnan(cluster))
-
-# Compute the distance matrix mapping each point to eachother
-compute_distance = partial(compute_distance_to_all_points, data=d)
-distance_matrix = np.apply_along_axis(compute_distance, 1, d)
-
-# %%
-cluster_index = 0
-while d[unassigned_core_points].shape[0] > 0:
-    # Set the random seed
+def DBSCAN(d, radius=1, core_point_threshold=10):
     np.random.seed(42)
-
-    # Define the index of this cluster
-    cluster_index += 1
     
-    # Check there are unassigned core points to sample
-    sample_pool = np.where(np.logical_and(core_points, np.isnan(cluster)))[0]
-    if len(sample_pool) == 0:
-        print("No remaining core points to sample")
-        break
-    index = np.random.choice(sample_pool)
-    center = d[index]
-    cluster[index] = cluster_index
+    n_instances, n_dims = d.shape    
 
-    it = 0
-    while True:
-        it += 1
-        # Neighbours is the matrix of points which lie within radius of any other point in the cluster
-        neighbours = (distance_matrix[cluster == cluster_index] <= radius)
-        any_neighbour = np.any(neighbours, axis=0)
+    # Define an empty set of cluster indices
+    cluster = np.full((n_instances), np.nan)
 
-        # Stop if there are no new neighbours (ie the number of points which are in the radius of the
-        # cluster is equal to the number of points in the cluster)
-        core_neighbours = np.logical_and(any_neighbour, core_points)
-        if np.sum(any_neighbour[core_neighbours == True]) <= np.sum(cluster == cluster_index):
+    # Compute the distance matrix mapping each point to eachother
+    compute_distance = partial(compute_distance_to_all_points, data=d)
+    distance_matrix = np.apply_along_axis(compute_distance, 1, d)
+
+    # Calculate the core points
+    mcp_partial = partial(mark_core_point, radius=radius, min_pts=core_point_threshold)
+    core_points = np.apply_along_axis(mcp_partial, 1, distance_matrix)
+
+    # Define a mask for the unassigned core points
+    unassigned_core_points = np.logical_and(core_points, np.isnan(cluster))
+
+    cluster_index = 0
+    while d[unassigned_core_points].shape[0] > 0:
+        # Set the random seed
+        np.random.seed(42)
+
+        # Define the index of this cluster
+        cluster_index += 1
+
+        # Check there are unassigned core points to sample
+        sample_pool = np.where(np.logical_and(core_points, np.isnan(cluster)))[0]
+        if len(sample_pool) == 0:
+            print("No remaining core points to sample")
             break
+        index = np.random.choice(sample_pool)
+        center = d[index]
+        cluster[index] = cluster_index
 
-        # Update the cluster of a point if it meets 1. is a neighbour of the cluster, 2. is unassigned
-        # AND 3. is a core point. Then iterate and recompute using the new cluster size
-        points_unassigned = np.logical_and.reduce((any_neighbour, np.isnan(cluster), core_points))
-        cluster[points_unassigned] = cluster_index
+        it = 0
+        while True:
+            it += 1
+            # Neighbours is the matrix of points which lie within radius of any other point in the cluster
+            neighbours = (distance_matrix[cluster == cluster_index] <= radius)
+            any_neighbour = np.any(neighbours, axis=0)
 
-    print(f"Cluster {cluster_index} core points added: {np.sum(cluster == cluster_index)} in {it} iterations")
+            # Stop if there are no new neighbours (ie the number of points which are in the radius of the
+            # cluster is equal to the number of points in the cluster)
+            core_neighbours = np.logical_and(any_neighbour, core_points)
+            if np.sum(any_neighbour[core_neighbours == True]) <= np.sum(cluster == cluster_index):
+                break
+
+            # Update the cluster of a point if it meets 1. is a neighbour of the cluster, 2. is unassigned
+            # AND 3. is a core point. Then iterate and recompute using the new cluster size
+            points_unassigned = np.logical_and.reduce((any_neighbour, np.isnan(cluster), core_points))
+            cluster[points_unassigned] = cluster_index
+
+        # Count the number of core points
+        n_core = np.sum(cluster == cluster_index)
+        
+        # Assign the reachable non-core points to the cluster also
+        reachable_points_unassigned = np.logical_and.reduce((~core_points, np.isnan(cluster), any_neighbour))
+        cluster[reachable_points_unassigned] = cluster_index
+        
+        # Count the number of non-core points
+        n_reachable = np.sum(cluster == cluster_index) - n_core
+        print(f"Cluster {cluster_index:1d}: {n_core:3d} core and {n_reachable:3d} points (total {(n_core + n_reachable):3d}) in {it:2d} iterations")
+        
+    # Assign outliers to "cluster" 0
+    cluster[np.isnan(cluster)] = 0
     
-    # Assign the reachable non-core points to the cluster also
-    reachable_points_unassigned = np.logical_and.reduce(
-        (~core_points, np.isnan(cluster), any_neighbour)
-    )
-    print(np.sum(reachable_points_unassigned))
-    cluster[reachable_points_unassigned] = cluster_index
-    
-    print(f"Assigned {np.sum(cluster == cluster_index)} points total")
+    return cluster
 
-# Assign outliers 0
-cluster[np.isnan(cluster)] = 0
+
+# %% [markdown]
+# ## Model usage
 
 # %%
-cluster
+model = DBSCAN(d)
 
 # %%
-plt.scatter(data["PC1"], data["PC2"], c=cluster)
-
-# %%
-np.sum(cluster == 5)
-
-# %%
-# Form a cluster from a core point
-# Define all the points in its neighbourhood
-# Add neighbouring core points to the cluster
-# Repeat until there are no more core points
-# Define all non-core points which are within the radius of the core points assigned to the cluster
-# Add these to the cluster
-
-# Repeat until every core point has been assigned to a cluster
-# Mark the remaining points as outliers
-
-# %%
-# Compute a distance matrix for each point
-# Create a core points mask
-# while there are unassigned core points:
-    # Pick a random core point
-    # Assign it to a cluster
-        # Find all the core points adjacent to the cluster
-        # Add those to the cluster
-        # Repeat until no more core points
-    # Find all the non-core points adjacent to the cluster
-    # Add them too
+plt.scatter(data["PC1"], data["PC2"], c=model)
