@@ -17,6 +17,11 @@
 # %% [markdown]
 # # DBSCAN
 
+# %% [markdown] tags=[]
+# # TODO
+#
+# Use N-dimensions in the clustering process
+
 # %%
 import pandas as pd
 import numpy as np
@@ -24,6 +29,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from functools import partial
+import ipywidgets as widgets
 
 # %% [markdown]
 # Import the data to use for the model
@@ -57,7 +63,7 @@ def compute_distance_to_all_points(x, data):
 # ## Model
 
 # %%
-def DBSCAN(d, radius=1, core_point_threshold=10):
+def DBSCAN(d, radius=1, core_point_threshold=10, verbose=True):
     np.random.seed(42)
     
     n_instances, n_dims = d.shape    
@@ -87,7 +93,8 @@ def DBSCAN(d, radius=1, core_point_threshold=10):
         # Check there are unassigned core points to sample
         sample_pool = np.where(np.logical_and(core_points, np.isnan(cluster)))[0]
         if len(sample_pool) == 0:
-            print("No remaining core points to sample")
+            if verbose:
+                print("No remaining core points to sample")
             break
         index = np.random.choice(sample_pool)
         center = d[index]
@@ -120,7 +127,8 @@ def DBSCAN(d, radius=1, core_point_threshold=10):
         
         # Count the number of non-core points
         n_reachable = np.sum(cluster == cluster_index) - n_core
-        print(f"Cluster {cluster_index:1d}: {n_core:3d} core and {n_reachable:3d} points (total {(n_core + n_reachable):3d}) in {it:2d} iterations")
+        if verbose:
+            print(f"Cluster {cluster_index:1d}: {n_core:3d} core and {n_reachable:3d} points (total {(n_core + n_reachable):3d}) in {it:2d} iterations")
         
     # Assign outliers to "cluster" 0
     cluster[np.isnan(cluster)] = 0
@@ -132,7 +140,48 @@ def DBSCAN(d, radius=1, core_point_threshold=10):
 # ## Model usage
 
 # %%
-model = DBSCAN(d)
+model = DBSCAN(data.values)
 
 # %%
 plt.scatter(data["PC1"], data["PC2"], c=model)
+
+
+# %% [markdown]
+# ## Interactive
+
+# %%
+def generate_model(data, radius, core_point_threshold):
+    features = ["PC1", "PC2"]
+    cluster_matrix = DBSCAN(data[features].values, radius, core_point_threshold, verbose=False)
+    
+    data_at_cluster = lambda f, c: data[f].values[cluster_matrix == c]
+    for v in np.unique(cluster_matrix):
+        if v == 0:
+            label = "Outlier"
+        else:
+            label = f"Cluster {int(v)}"
+        plt.scatter(data_at_cluster("PC1", v), data_at_cluster("PC2", v), label=label)
+        
+    plt.legend(loc=1)
+    plt.show()
+
+
+
+# %%
+widgets.interact(
+    generate_model, 
+    radius=widgets.BoundedFloatText(
+        min=0, 
+        max=20,
+        step=0.01,
+        description="Radius:",
+        value=1
+    ),
+    core_point_threshold=widgets.BoundedIntText(
+        min=1,
+        max=20,
+        description="Core point threshold:",
+        value=10
+    ),
+    data=widgets.fixed(data)
+); None
