@@ -25,6 +25,8 @@ import seaborn as sns
 
 from tqdm.notebook import tqdm
 
+import ipywidgets as widgets
+
 # %% tags=[]
 data = pd.read_csv(
     "../data/data-processed.csv"
@@ -70,11 +72,37 @@ fig.update_layout(title="Inertia vs Cluster Number",xaxis=dict(range=[0,11],titl
         )
     ])
 
-
 # %% [markdown] tags=[]
 # ## Custom implementation of K-Means
 #
 # - Consider the Manhattan distance metric as well as Euclidean
+
+# %%
+np.set_printoptions(precision=2)
+
+class Model:
+    def __init__(self, 
+        inertia=None,
+        centers=None,
+        purities=None,
+        distance_function=None,
+        K=0
+    ):
+        self.inertia = inertia
+        self.centers = centers
+        self.purities = purities
+        self.distance_function = distance_function
+        self.K = K
+        
+    def summary(self):
+        print(f"K-Means model K={self.K} using {self.distance_function} distance.")
+        print("Centers:")
+        i = 1
+        for center, purity in zip(self.centers, self.purities):
+            print(f"{i} : {center} : {purity}")
+            i += 1
+
+
 
 # %%
 # Find the closest cluster for each point
@@ -92,13 +120,17 @@ def KMeansModel(
     Step 2 - Recompute centroids of newly formed clusters
     Step 3 - Repeat until convergence"""
     
+    # Define the response model
+    model = Model(K=K, distance_function=distance)
+    
     if distance == "euclidean":
         distance = lambda x, p : np.sqrt(np.sum((x - p) ** 2)) 
     elif distance == "manhattan":
         distance = lambda x, p : np.sum(np.abs(x - p))
     else:
         raise ValueError("Argument 'distance' must be either 'euclidean' or 'manhattan'.")
-                                         
+    
+    
     # Define which columns are features
     features = list(data.columns)[:-1]
     
@@ -107,7 +139,8 @@ def KMeansModel(
     while centers.duplicated().any().any():
         centers = data[features].sample(n=K)    
     
-    centers = centers.values
+    # Initialise the centers
+    model.centers = centers.values
     
     # Set a new column to store the cluster that each point belongs to
     data["clusterIndex"] = 0
@@ -119,7 +152,7 @@ def KMeansModel(
         data["clusterIndex"] = data[features].apply(
             closest_cluster, 
             axis=1, 
-            centers=centers, 
+            centers=model.centers, 
             distance_function=distance
         )
 
@@ -131,33 +164,40 @@ def KMeansModel(
             new_centers[i, :] = cluster_mean
 
         # If the new means are equal to the previous then we have converged to a solution
-        if (new_centers==centers).all():
+        if (new_centers==model.centers).all():
             complete = True
             
         # Update the location of the centers
-        centers = copy(new_centers)
+        model.centers = copy(new_centers)
         
     # Calculate the model inertia
-    inertia = 0
+    model.inertia = 0
     for point_index, point in data.iterrows():
         # Get the assigned center
-        center = centers[int(point["clusterIndex"])]
+        center = model.centers[int(point["clusterIndex"])]
         # Update the inertia with the squared distance
-        inertia += distance(point[features].values, center)
+        model.inertia += distance(point[features].values, center)
     
     # Calculate the cluster purity
-    purities = np.zeros((K, 1))
-    for i, _ in enumerate(centers):
+    model.purities = np.zeros((K, 1))
+    for i, _ in enumerate(model.centers):
         subset = data[data["clusterIndex"] == i]
         mode_class = subset["class"].mode().values[0]
         subset_mode_class = subset[subset["class"] == mode_class]
-        purities[i] = subset_mode_class.shape[0] / subset.shape[0]
+        model.purities[i] = subset_mode_class.shape[0] / subset.shape[0]
         
     
-    return inertia, centers, purities
+    return model
 
 # %%
-inertia, centers, purities = KMeansModel(copy(data), 2)
+model = KMeansModel(copy(data), 2)
+
+# %%
+model.summary()
+
+# %%
+model.purities[0] == model.purities[1]
+
 
 # %% [markdown]
 # ## Elbow diagram generation
@@ -165,37 +205,42 @@ inertia, centers, purities = KMeansModel(copy(data), 2)
 # %% [markdown]
 # ### Euclidean distance
 
-# %% tags=[]
-# Cannot store the centers as the order might not be correct
-inertias = []
-purities = []
-
-n_epochs = 20
-cluster_range = range(1, 9)
-
-for i in cluster_range:
-    print(f"Clustering with k = {i}")
-    k_inertia = []
-    k_purity = []
-    for ep in tqdm(range(n_epochs)):
-        ep_inertia, _, ep_purity = KMeansModel(copy(data), i, distance="euclidean")
-        k_inertia.append(ep_inertia)
-        k_purity.append(ep_purity)
+# %%
+def test_models(data, cluster_range, n_epochs, distance_function="euclidean", verbose=True):
+    models = []
     
-    mean_inertia = np.mean(k_inertia)
-    mean_purity = np.mean(k_purity, axis=0)
+    for i in cluster_range:
+        if verbose:
+            print(f"Clustering with K = {i}")
+        cluster_model = Model(K=i, distance_function=distance_function)
+        
+        # We only count the mean of the inertia over all models.
+        inertias = []
+        
+        it = range(n_epochs)
+        if verbose:
+            it = tqdm(it)
+        
+        for ep in it:
+            model = KMeansModel(copy(data), i, distance=distance_function)
+            inertias.append(model.inertia)
+        
+        cluster_model.inertia = np.mean(inertias)
+        models.append(cluster_model)
     
-    inertias.append(mean_inertia)
-    purities.append(mean_purity)
+    plt.plot(cluster_range, [i.inertia for i in models], marker="o")
+    
+    plt.xlabel("Number of centroids (K)")
+    plt.ylabel("Mean inertia")
+    plt.xticks(cluster_range)
+    
+    plt.show()
+    
+    return models
+
 
 # %%
-plt.plot(cluster_range, inertias, marker="o")
-
-plt.xlabel("Number of centroids")
-plt.ylabel("Inertia")
-plt.xticks(cluster_range)
-
-plt.show()
+models = test_models(data, range(1, 11), 5, distance_function="euclidean", verbose=True)
 
 # %% [markdown]
 # A clear elbow point is visible at $k=2$
@@ -203,34 +248,44 @@ plt.show()
 # %% [markdown]
 # ### Manhattan distance
 
-# %% tags=[]
-# Cannot store the centers as the order might not be correct
-inertias = []
-purities = []
+# %%
+models = test_models(data, range(1, 11), 5, distance_function="manhattan", verbose=False)
 
-n_epochs = 20
-cluster_range = range(1, 9)
-
-for i in cluster_range:
-    print(f"Clustering with k = {i}")
-    k_inertia = []
-    k_purity = []
-    for ep in tqdm(range(n_epochs)):
-        ep_inertia, _, ep_purity = KMeansModel(copy(data), i, distance="manhattan")
-        k_inertia.append(ep_inertia)
-        k_purity.append(ep_purity)
-    
-    mean_inertia = np.mean(k_inertia)
-    mean_purity = np.mean(k_purity, axis=0)
-    
-    inertias.append(mean_inertia)
-    purities.append(mean_purity)
+# %% [markdown]
+# # Using PCA
 
 # %%
-plt.plot(cluster_range, inertias, marker="o")
+data_pca = pd.read_csv("../data/data-pca.csv")
 
-plt.xlabel("Number of centroids")
-plt.ylabel("Inertia")
-plt.xticks(cluster_range)
+cols = ["PC1", "PC2", "PC3", "class"]
+data_pca = data_pca[cols]
 
-plt.show()
+# %%
+models = test_models(data_pca, range(1, 11), 10, distance_function="euclidean", verbose=False)
+
+# %%
+# SS = subset
+ss = lambda f, l: data_pca[data_pca["class"] == l][f]
+
+def interactive_demo(K, distance="euclidean"):
+    model = KMeansModel(copy(data_pca), K=K, distance=distance)
+    
+    # Create an artist for the data and clusters
+    plt.scatter(ss("PC1", 0), ss("PC2", 0), c="orange", label="Benign")
+    plt.scatter(ss("PC1", 1), ss("PC2", 1), c="purple", label="Malignant")
+    plt.scatter(model.centers[:, 0], model.centers[:, 1], label="Cluster", marker="X", c="green", s=100)
+
+    plt.legend(loc=1)
+    plt.show()
+
+
+# %%
+widgets.interact(
+    interactive_demo, 
+    K=widgets.IntSlider(min=1, max=20, value=2),
+    distance=widgets.RadioButtons(
+        options=["euclidean", "manhattan"],
+        description="Distance function"
+    )
+)
+None

@@ -147,11 +147,11 @@ fig = px.scatter_matrix(data,
 )
 fig.show()
 
-# %%
+# %% tags=[]
 data.iloc[:, 1].var()
 
 
-# %% jupyter={"source_hidden": true} tags=[]
+# %% tags=[]
 def draw_histogram(feature_index, hist_type):
     title = re.sub('([A-Z]+)', r' \1', data.columns[feature_index]).lower()
 
