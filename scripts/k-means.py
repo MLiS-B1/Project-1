@@ -86,13 +86,15 @@ class Model:
         centers=None,
         purities=None,
         distance_function=None,
-        K=0
+        K=0,
+        data=None
     ):
         self.inertia = inertia
         self.centers = centers
         self.purities = purities
         self.distance_function = distance_function
         self.K = K
+        self.data = data
         
     def summary(self):
         print(f"K-Means model K={self.K} using {self.distance_function} distance.")
@@ -186,6 +188,9 @@ def KMeansModel(
         subset_mode_class = subset[subset["class"] == mode_class]
         model.purities[i] = subset_mode_class.shape[0] / subset.shape[0]
         
+    # Save the data used by this model so cluster assignments are known
+    model.data = data
+        
     
     return model
 
@@ -240,7 +245,11 @@ def test_models(data, cluster_range, n_epochs, distance_function="euclidean", ve
 
 
 # %%
-models = test_models(data, range(1, 11), 5, distance_function="euclidean", verbose=True)
+cluster_range = range(1, 4)
+epochs = 2
+
+# %%
+models = test_models(data, cluster_range, epochs, distance_function="euclidean", verbose=True)
 
 # %% [markdown]
 # A clear elbow point is visible at $k=2$
@@ -249,7 +258,7 @@ models = test_models(data, range(1, 11), 5, distance_function="euclidean", verbo
 # ### Manhattan distance
 
 # %%
-models = test_models(data, range(1, 11), 5, distance_function="manhattan", verbose=False)
+models = test_models(data, cluster_range, epochs, distance_function="manhattan", verbose=False)
 
 # %% [markdown]
 # # Using PCA
@@ -261,20 +270,32 @@ cols = ["PC1", "PC2", "PC3", "class"]
 data_pca = data_pca[cols]
 
 # %%
-models = test_models(data_pca, range(1, 11), 10, distance_function="euclidean", verbose=False)
+models = test_models(data_pca, cluster_range, epochs, distance_function="euclidean", verbose=False)
 
 # %%
-# SS = subset
-ss = lambda f, l: data_pca[data_pca["class"] == l][f]
+model = KMeansModel(copy(data_pca), K=2, distance="euclidean")
 
-def interactive_demo(K, distance="euclidean"):
+
+# %% tags=[]
+
+def interactive_demo(K, distance="euclidean", colour="class"):
     model = KMeansModel(copy(data_pca), K=K, distance=distance)
-    
-    # Create an artist for the data and clusters
-    plt.scatter(ss("PC1", 0), ss("PC2", 0), c="orange", label="Benign")
-    plt.scatter(ss("PC1", 1), ss("PC2", 1), c="purple", label="Malignant")
-    plt.scatter(model.centers[:, 0], model.centers[:, 1], label="Cluster", marker="X", c="green", s=100)
 
+    # SSC = subset class
+    # SSG = subset group (cluster)
+    ssc = lambda f, l: model.data[model.data["class"] == l][f]
+    ssg = lambda f, c: model.data[model.data["clusterIndex"] == c][f]
+    
+    if colour == "class":
+        # Create an artist for the data and clusters
+        plt.scatter(ssc("PC1", 0), ssc("PC2", 0), c="orange", label="Benign")
+        plt.scatter(ssc("PC1", 1), ssc("PC2", 1), c="purple", label="Malignant")
+        plt.scatter(model.centers[:, 0], model.centers[:, 1], label="Cluster", marker="X", c="green", s=100)
+    elif colour == "cluster":
+        for i, v in enumerate(model.centers):
+            plt.scatter(ssg("PC1", i), ssg("PC2", i), label=f"Cluster {i+1}")
+            plt.scatter(v[0], v[1], label=f"Center {i+1}", marker="X", s=100)
+    
     plt.legend(loc=1)
     plt.show()
 
@@ -286,6 +307,10 @@ widgets.interact(
     distance=widgets.RadioButtons(
         options=["euclidean", "manhattan"],
         description="Distance function"
+    ),
+    colour=widgets.RadioButtons(
+        options=["class", "cluster"],
+        description="Colour points by"
     )
 )
 None
