@@ -17,7 +17,10 @@
 # %% [markdown]
 # # This text is mostly bullshit, needs rewriting
 
-# %% [markdown]
+# %%
+# %matplotlib widget
+
+# %% [markdown] jp-MarkdownHeadingCollapsed=true tags=[]
 # ### todo:
 # - Make the plot interactive to view by point probability
 # - 3d contour plot of the gaussians
@@ -77,7 +80,7 @@ import ipywidgets as widgets
 # %% tags=[]
 data = pd.read_csv("../data/data-pca.csv")
 d2_cols = ["PC1", "PC2", "class"]
-data = full_data[d2_cols]
+data = data[d2_cols]
 
 
 # %% [markdown] tags=[]
@@ -297,22 +300,22 @@ class_data = lambda f, l: data[data["class"] == l][f]
 
 # %% tags=[]
 # From http://ethen8181.github.io/machine-learning/clustering/GMM/GMM.html
-def plot_gaussians(model, resolution=1e-1):
-    x, y = np.mgrid[-30:0:resolution, -10:15:resolution]
+def plot_gaussians(model, resolution=1e-2):
+    x, y = np.mgrid[-3:3:resolution, -3:3:resolution]
     position = np.empty(x.shape + (2,))
     position[:, :, 0] = x
     position[:, :, 1] = y
 
     plt.figure(figsize = (15, 6))
-    plt.scatter(class_data("PC1", 0), class_data("PC2", 0), label="Benign cases")
-    plt.scatter(class_data("PC1", 1), class_data("PC2", 1), label="Malignant cases")
+    plt.scatter(class_data("PC1", 0), class_data("PC2", 0), label="Benign cases", s=0.4)
+    plt.scatter(class_data("PC1", 1), class_data("PC2", 1), label="Malignant cases", s=0.4)
 
     for i in range(2):
         z = np.apply_along_axis(samplers[i], 2, position)
         plt.contour(x, y, z, colors="black")
 
-    plt.xlim([-25, 0])
-    plt.ylim([-10, 15])
+    # plt.xlim([-25, 0])
+    # plt.ylim([-10, 15])
 
     plt.xlabel("PC1")
     plt.ylabel("PC2")
@@ -325,14 +328,14 @@ plot_gaussians(gmm_model)
 
 
 # %%
-def drawax3d(model, resolution=0.1):       
+def drawax3d(model, resolution=.1):       
     # Create a plot and 3d axes
-    fig = plt.figure(figsize=(15, 15))
-    ax = plt.axes(projection="3d")
-    range_pc1 = range(-30, 21)
-    range_pc2 = range(-30, 21)
+    fig = plt.figure()
+    ax = plt.axes()
+    range_pc1 = range(-3, 3)
+    range_pc2 = range(-3, 3)
     
-    enabled = [False, True]
+    enabled = [True, True]
     
     pc1, pc2 = np.mgrid[range_pc1[0]:range_pc1[-1]:resolution, range_pc2[0]:range_pc2[-1]:resolution]
     position = np.empty(pc1.shape + (2,))
@@ -342,14 +345,48 @@ def drawax3d(model, resolution=0.1):
         if not enabled[i]:
             continue
         z = np.apply_along_axis(samplers[i], 2, position)
-        ax.contour3D(pc1, pc2, z, 100)
+        ax.contour(pc1, pc2, z, 100)
+
+    # Set the rotation and axes labels
+    # ax.view_init(30, rotation)
+    ax.set_xlabel("PC1")
+    ax.set_ylabel("PC2")
+drawax3d(gmm_model)
+
+
+# %%
+def drawax3d(model, resolution=.1):       
+    # Create a plot and 3d axes
+    fig = plt.figure(figsize=(15, 15))
+    ax = fig.add_subplot(projection="3d")
+    range_pc1 = range(-3, 3)
+    range_pc2 = range(-3, 3)
+    
+    enabled = [True, True]
+    
+    pc1, pc2 = np.mgrid[range_pc1[0]:range_pc1[-1]:resolution, range_pc2[0]:range_pc2[-1]:resolution]
+    position = np.empty(pc1.shape + (2,))
+    position[:, :, 0] = pc1
+    position[:, :, 1] = pc2
+            
+    for i in range(model.K):
+        if not enabled[i]:
+            continue
+        z = np.apply_along_axis(samplers[i], 2, position)
+        # ax.plot_wireframe(pc1, pc2, z, rstride=5, cstride=5)
+        ax.plot_surface(pc1, pc2, z, cmap="coolwarm", linewidth=0, antialiased=True, rstride=1, cstride=1)
+
 
     # Set the rotation and axes labels
     # ax.view_init(30, rotation)
     ax.set_xlabel("PC1")
     ax.set_ylabel("PC2")
     ax.set_zlabel("Probability")
+    
 
+drawax3d(gmm_model)
 
 # %%
-drawax3d(gmm_model)
+gmm_model.clusters[0] in data
+
+# %%

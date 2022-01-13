@@ -213,4 +213,6 @@ widgets.interact(
 # # Data export
 
 # %%
-res.to_csv("../data/data-pca.csv", index=False)
+PC_data.to_csv("../data/data-pca.csv", index=False)
+
+# %%
