@@ -151,18 +151,14 @@ def DBSCAN(d, radius=.25, core_point_threshold=10, verbose=True):
 model = DBSCAN(data.values)
 
 # %%
-fig, ax = plt.subplots()
-
 sns.scatterplot(x=data["PC1"], y=data["PC2"], hue=model)
-
-
 plt.show()
 
 # %% [markdown]
 # ## Interactive
 
 # %%
-features = ["PC1", "PC2"]
+features = data.columns[:-1]
 cluster_matrix = DBSCAN(data[features].values, .05, 5, verbose=True)
 
 # %%
@@ -181,9 +177,12 @@ plt.show()
 
 
 # %%
-def generate_model(data, radius, core_point_threshold, ax, fig):
+def generate_model(data, radius, core_point_threshold, ax, fig, training_data=None):
     # Use PC1 and PC2 to plot
     features = ["PC1", "PC2"]
+    
+    if not training_data:
+        training_data = data[features].values
     
     # Get the clustering after applying the algorithm to the data
     cluster_matrix = DBSCAN(data[features].values, radius, core_point_threshold, verbose=False)
@@ -233,7 +232,47 @@ widgets.interact(
     ),
     data=widgets.fixed(data),
     ax=widgets.fixed(ax),
-    fig=widgets.fixed(fig)
+    fig=widgets.fixed(fig),
+    training_data=widgets.fixed(None)
 ); None
 
+# %% [markdown]
+# # Using the original data
+
 # %%
+data_orig = pd.read_csv("../data/data-processed.csv")
+features = data_orig.columns[:-1]
+data_orig_feat = data_orig[features]
+
+# %%
+cluster_matrix = DBSCAN(data_orig_feat.values, 5, 7, verbose=True)
+
+# %%
+fig, ax = plt.subplots()
+
+# Use PC1 and PC2 to plot
+features = ["PC1", "PC2"]
+
+# Macro to extract only the datapoints for a given feature which belong to some cluster
+data_at_cluster = lambda f, c: data[f].values[cluster_matrix == c]
+
+# Clear the axes 
+plt.cla()
+
+# Iterate over each cluster and plot each group with a new artist
+for v in np.unique(cluster_matrix):
+    if v == 0:
+        label = "Outlier"
+    else:
+        label = f"Cluster {int(v)}"
+    ax.scatter(data_at_cluster("PC1", v), data_at_cluster("PC2", v), label=label)
+
+plt.xlabel("PC1")
+plt.ylabel("PC2")
+plt.legend()
+
+# Trigger a canvas redraw
+fig.canvas.draw()
+
+# %% [markdown]
+# This is how DBSCAN would classify the original data, represented in terms of PC1 and PC2
