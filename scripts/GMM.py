@@ -22,8 +22,8 @@
 
 # %% [markdown] jp-MarkdownHeadingCollapsed=true tags=[]
 # ### todo:
-# - Make the plot interactive to view by point probability
-# - 3d contour plot of the gaussians
+# - [x] Make the plot interactive to view by point probability
+# - [x] 3d contour plot of the gaussians
 # - Try GMM on the data that have not been preprocessed (will probably fail badly from singluar matrices)
 
 # %% [markdown] jp-MarkdownHeadingCollapsed=true tags=[]
@@ -74,13 +74,15 @@ from copy import copy
 import matplotlib.pyplot as plt
 import ipywidgets as widgets
 
+from functools import partial
+
 # %% [markdown] tags=[]
 # # Data handling
 
 # %% tags=[]
 data = pd.read_csv("../data/data-pca.csv")
-d2_cols = ["PC1", "PC2", "class"]
-data = data[d2_cols]
+clustering_cols = ["PC1", "PC2", "class"]
+clustering_data = data[clustering_cols]
 
 
 # %% [markdown] tags=[]
@@ -161,7 +163,7 @@ def compute_likelihood(x, model):
 # ## EM algorithm
 
 # %%
-def GMM(data, K, seed=42, maxiter=1e3, stop_threshold=1e-3):  
+def GMM(data, K, seed=42, maxiter=1e3, stop_threshold=1e-3, verbose=True):  
     # Set the model seed
     np.random.seed(seed)
     
@@ -197,7 +199,7 @@ def GMM(data, K, seed=42, maxiter=1e3, stop_threshold=1e-3):
     # is not met on the first iteration
     model.likelihood = -np.inf
     
-    converged = False
+    model.converged = False
     complete = False
     while not complete:     
         """
@@ -205,14 +207,18 @@ def GMM(data, K, seed=42, maxiter=1e3, stop_threshold=1e-3):
                 Compute the likelihood given these clusters and weights
         """
         # Calculate the responsibility matrix  
-        new_resp = np.stack(
-            data[features].apply(
-                responsibility, 
-                axis=1, 
-                model=model
-            ).values
-        )
-        
+        try:
+            new_resp = np.stack(
+                data[features].apply(
+                    responsibility, 
+                    axis=1, 
+                    model=model
+                ).values
+            )
+        except np.linalg.LinAlgError as e:
+            if verbose: print(repr(e))
+            return model
+            
         # Compute the log likelihood 
         likelihood = np.sum(
             data[features].apply(
@@ -256,7 +262,7 @@ def GMM(data, K, seed=42, maxiter=1e3, stop_threshold=1e-3):
         
         # Check if the stop conditions of the model have been reached
         if np.abs(likelihood - model.likelihood) < stop_threshold:
-            converged = True
+            model.converged = True
             complete = True
         elif model.it >= maxiter:
             complete = True
@@ -273,92 +279,58 @@ def GMM(data, K, seed=42, maxiter=1e3, stop_threshold=1e-3):
         model.trace_likelihood.append(likelihood)
         
         # Display the iteration and update the counter
-        print(f"Iteration {model.it}", end="\r")
+        if verbose: print(f"Iteration {model.it}", end="\r")
 
     
-    print(f"Completed in {model.it} iterations")
+    if verbose: print(f"Completed in {model.it} iterations")
     return model
 
 # %% [markdown]
 # # Fit and result
 
 # %%
-gmm_model = GMM(data[d2_cols], 2)
+K = 2
+
+gmm_model = GMM(clustering_data, K)
 gmm_model.plot_likelihood()
 
-# %% [markdown]
-# ## Visualise clusters
 
-# %%
-from functools import partial
+# %% [markdown] tags=[]
+# ## Matplotlib functions
 
 # %%
 # Generate partial functions to be used with vectorizing
-samplers = [partial(evaluate_pdf, gauss=Gaussian(i.mean, i.cov)) for i in gmm_model.clusters]
-class_data = lambda f, l: data[data["class"] == l][f]
-
 
 # %% tags=[]
 # From http://ethen8181.github.io/machine-learning/clustering/GMM/GMM.html
-def plot_gaussians(model, resolution=1e-2):
+def plot_gaussians(model, data, ax, resolution=.1, features=["PC1", "PC2"]):
+    samplers = [partial(evaluate_pdf, gauss=Gaussian(i.mean, i.cov)) for i in model.clusters]
+    class_data = lambda f, l: data[data["class"] == l][f]
+    
     x, y = np.mgrid[-3:3:resolution, -3:3:resolution]
     position = np.empty(x.shape + (2,))
     position[:, :, 0] = x
     position[:, :, 1] = y
 
-    plt.figure(figsize = (15, 6))
-    plt.scatter(class_data("PC1", 0), class_data("PC2", 0), label="Benign cases", s=0.4)
-    plt.scatter(class_data("PC1", 1), class_data("PC2", 1), label="Malignant cases", s=0.4)
+    ax.scatter(class_data(features[0], 0), class_data(features[1], 0), label="Benign cases", s=0.4)
+    ax.scatter(class_data(features[0], 1), class_data(features[1], 1), label="Malignant cases", s=0.4)
 
-    for i in range(2):
-        z = np.apply_along_axis(samplers[i], 2, position)
-        plt.contour(x, y, z, colors="black")
-
-    # plt.xlim([-25, 0])
-    # plt.ylim([-10, 15])
-
-    plt.xlabel("PC1")
-    plt.ylabel("PC2")
-    plt.legend(loc=1)
-    plt.show()
-
-
-# %% tags=[]
-plot_gaussians(gmm_model)
-
-
-# %%
-def drawax3d(model, resolution=.1):       
-    # Create a plot and 3d axes
-    fig = plt.figure()
-    ax = plt.axes()
-    range_pc1 = range(-3, 3)
-    range_pc2 = range(-3, 3)
-    
-    enabled = [True, True]
-    
-    pc1, pc2 = np.mgrid[range_pc1[0]:range_pc1[-1]:resolution, range_pc2[0]:range_pc2[-1]:resolution]
-    position = np.empty(pc1.shape + (2,))
-    position[:, :, 0] = pc1
-    position[:, :, 1] = pc2
     for i in range(model.K):
-        if not enabled[i]:
-            continue
         z = np.apply_along_axis(samplers[i], 2, position)
-        ax.contour(pc1, pc2, z, 100)
+        ax.contour(x, y, z, colors="black")
 
-    # Set the rotation and axes labels
-    # ax.view_init(30, rotation)
-    ax.set_xlabel("PC1")
-    ax.set_ylabel("PC2")
-drawax3d(gmm_model)
+    ax.set_xlabel(features[0])
+    ax.set_ylabel(features[1])
+    ax.set_title("Contour plot of the clusters fitted.")
+    
+    ax.legend(loc=1)
+    # plt.show()
 
 
 # %%
-def drawax3d(model, resolution=.1):       
+def drawax3d(model, ax, resolution=.1):
+    samplers = [partial(evaluate_pdf, gauss=i) for i in model.clusters]
     # Create a plot and 3d axes
-    fig = plt.figure(figsize=(15, 15))
-    ax = fig.add_subplot(projection="3d")
     range_pc1 = range(-3, 3)
     range_pc2 = range(-3, 3)
     
@@ -382,11 +354,55 @@ def drawax3d(model, resolution=.1):
     ax.set_xlabel("PC1")
     ax.set_ylabel("PC2")
     ax.set_zlabel("Probability")
+    ax.set_title("Visualisation of the Gaussian mixture surface.")
     
 
-drawax3d(gmm_model)
+# %% [markdown]
+# ## Visualisations
 
 # %%
-gmm_model.clusters[0] in data
+fig = plt.figure(figsize=plt.figaspect(.5))
+ax1 = fig.add_subplot(1, 2, 1)
+ax2 = fig.add_subplot(1, 2, 2, projection="3d")
+
+plot_gaussians(gmm_model, clustering_data, ax1, resolution=.075)
+drawax3d(gmm_model, ax2, resolution=.1)
+
+plt.show()
+
+# %% [markdown]
+# # Clustering on the original data.
 
 # %%
+orig_data = pd.read_csv("../data/data-processed.csv")
+
+# %%
+orig_data
+
+# %% [markdown]
+# The most important columns to these data have been confirmed through PCA to be UniformityOfCellSize and MarginalAdhesion
+
+# %%
+orig_cols = ["uniformityOfCellSize", "marginalAdhesion", "class"]
+
+# %%
+orig_data[orig_cols]
+
+# %%
+gmm_model_orig = GMM(orig_data[orig_cols], 2)
+
+# %%
+gmm_model_orig.clusters
+
+# %%
+fig = plt.figure(figsize=plt.figaspect(.5))
+ax1 = fig.add_subplot(1, 2, 1)
+ax2 = fig.add_subplot(1, 2, 2, projection="3d")
+
+gmm_model_orig.clusters.pop()
+gmm_model_orig.K = 1
+
+plot_gaussians(gmm_model_orig, orig_data, ax1, resolution=.075, features=orig_cols)
+drawax3d(gmm_model_orig, ax2, resolution=.1)
+
+plt.show()

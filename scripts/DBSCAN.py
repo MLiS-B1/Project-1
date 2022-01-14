@@ -23,6 +23,9 @@
 # Use N-dimensions in the clustering process
 
 # %%
+# %matplotlib widget
+
+# %%
 import pandas as pd
 import numpy as np
 
@@ -30,6 +33,11 @@ import matplotlib.pyplot as plt
 
 from functools import partial
 import ipywidgets as widgets
+
+import seaborn as sns
+
+# %%
+plt.style.use("seaborn-whitegrid")
 
 # %% [markdown]
 # Import the data to use for the model
@@ -63,7 +71,7 @@ def compute_distance_to_all_points(x, data):
 # ## Model
 
 # %%
-def DBSCAN(d, radius=1, core_point_threshold=10, verbose=True):
+def DBSCAN(d, radius=.25, core_point_threshold=10, verbose=True):
     np.random.seed(42)
     
     n_instances, n_dims = d.shape    
@@ -143,45 +151,89 @@ def DBSCAN(d, radius=1, core_point_threshold=10, verbose=True):
 model = DBSCAN(data.values)
 
 # %%
-plt.scatter(data["PC1"], data["PC2"], c=model)
+fig, ax = plt.subplots()
 
+sns.scatterplot(x=data["PC1"], y=data["PC2"], hue=model)
+
+
+plt.show()
 
 # %% [markdown]
 # ## Interactive
 
 # %%
-def generate_model(data, radius, core_point_threshold):
+features = ["PC1", "PC2"]
+cluster_matrix = DBSCAN(data[features].values, .05, 5, verbose=True)
+
+# %%
+fig, ax = plt.subplots()
+
+data_at_cluster = lambda f, c: data[f].values[cluster_matrix == c]
+for v in np.unique(cluster_matrix):
+    if v == 0:
+        label = "Outlier"
+    else:
+        label = f"Cluster {int(v)}"
+    ax.scatter(data_at_cluster("PC1", v), data_at_cluster("PC2", v), label=label, s=5)
+
+plt.legend(loc=1)
+plt.show()
+
+
+# %%
+def generate_model(data, radius, core_point_threshold, ax, fig):
+    # Use PC1 and PC2 to plot
     features = ["PC1", "PC2"]
+    
+    # Get the clustering after applying the algorithm to the data
     cluster_matrix = DBSCAN(data[features].values, radius, core_point_threshold, verbose=False)
     
+    # Macro to extract only the datapoints for a given feature which belong to some cluster
     data_at_cluster = lambda f, c: data[f].values[cluster_matrix == c]
+    
+    # Clear the axes 
+    plt.cla()
+    
+    # Iterate over each cluster and plot each group with a new artist
     for v in np.unique(cluster_matrix):
         if v == 0:
             label = "Outlier"
         else:
             label = f"Cluster {int(v)}"
-        plt.scatter(data_at_cluster("PC1", v), data_at_cluster("PC2", v), label=label)
-        
-    plt.legend(loc=1)
-    plt.show()
+        ax.scatter(data_at_cluster("PC1", v), data_at_cluster("PC2", v), label=label)
 
+    plt.xlabel("PC1")
+    plt.ylabel("PC2")
+    plt.legend(loc=1)
+            
+    # Trigger a canvas redraw
+    fig.canvas.draw()
 
 
 # %%
+# Create a figure for the plot
+fig, ax = plt.subplots()
+
+# Call generate_model with the figure and axis 
+# so it can draw data onto the canvas
 widgets.interact(
     generate_model, 
     radius=widgets.BoundedFloatText(
         min=0, 
-        max=20,
+        max=1,
         step=0.01,
         description="Radius:",
-        value=1
+        value=.25
     ),
     core_point_threshold=widgets.BoundedIntText(
         min=1,
         max=20,
         description="Core point threshold:",
-        value=10
+        value=20
     ),
-    data=widgets.fixed(data)
+    data=widgets.fixed(data),
+    ax=widgets.fixed(ax),
+    fig=widgets.fixed(fig)
 ); None
+
+# %%

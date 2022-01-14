@@ -18,6 +18,9 @@
 # # Data preprocessing
 
 # %%
+# %matplotlib widget
+
+# %%
 import pandas as pd
 import numpy as np
 
@@ -27,9 +30,6 @@ import plotly.express as px
 
 import ipywidgets as widgets
 import re
-
-# %%
-# %matplotlib inline
 
 # %% [markdown]
 # Data will be processed and output as a new csv.
@@ -99,8 +99,7 @@ data.dtypes
 # The `bareNuclei` column has been casted to `float64`, meaning there are some missing values in this column.
 
 # %%
-print(f'Values missing in bareNuclei? {any(data["bareNuclei"].isna())}') # Some values are NaN
-np.count_nonzero(data.isna())
+f'Values missing in bareNuclei {np.count_nonzero(data.isna())}' # Some values are NaN
 
 # %% [markdown]
 # There are 16 instances of missing values. Rows containing them can now be removed.
@@ -121,8 +120,10 @@ data[data["class"] == 10].any().any() == False
 # The proportion of positive to negative class (malignant to benign cases) can be visualised using a historgram. Note since the target is now binarized the values will only be 0 or 1.
 
 # %%
-bin_vals, _, _ = plt.hist(data["class"], [-0.5, 0.5, 1.5], ec="k")
-plt.xticks((0, 1), ("Benign", "Malignant"))
+fig, ax = plt.subplots()
+
+bin_vals, _, _ = ax.hist(data["class"], [-0.5, 0.5, 1.5], ec="k")
+ax.set_xticks((0, 1), ("Benign", "Malignant"))
 plt.show()
 
 # %%
@@ -152,11 +153,14 @@ data.iloc[:, 1].var()
 
 
 # %% tags=[]
-def draw_histogram(feature_index, hist_type):
+def draw_histogram(feature_index, hist_type, figure, his, box):
     title = re.sub('([A-Z]+)', r' \1', data.columns[feature_index]).lower()
 
-    figure, (his, box) = plt.subplots(1, 2, figsize=(15, 8))
+    
     figure.suptitle(f'Histogram and boxplot for {title}')
+    
+    his.cla()
+    box.cla()
     
     if hist_type == "all":
         hist_data = data.iloc[:, feature_index]
@@ -178,6 +182,8 @@ def draw_histogram(feature_index, hist_type):
     box.set_yticks(range(11))
     box.set_xticks((1, 2, 3), ["All classes", "Benign", "Malignant"])
     
+    figure.canvas.draw()
+    
     print(f"{title}:")
     skew = data.iloc[:, feature_index].skew()
     print(f"\tSkew\t\t\t{skew:.2f}")
@@ -197,14 +203,19 @@ def draw_histogram(feature_index, hist_type):
     print(f"\tMalignant variance\t{m_var:.2f}\n\tMalignant mean\t\t{m_mean:.2f}")
 
 
-# %% tags=[]
+figure, (his, box) = plt.subplots(1, 2, figsize=plt.figaspect(.5))
+
+    
 widgets.interact(
     draw_histogram, 
     feature_index=widgets.IntSlider(min=0, max=8),
     hist_type=widgets.RadioButtons(
         options=["all", "benign", "malignant"],
         description="Histogram values"
-    )
+    ),
+    figure=widgets.fixed(figure),
+    his=widgets.fixed(his),
+    box=widgets.fixed(box)
 )
 
 # %% [markdown] tags=[]
@@ -224,7 +235,7 @@ widgets.interact(
 # # 4. Correlation Matrix
 
 # %%
-corr = data.corr()
+corr = data.corr() #poopoo
 corr.style.background_gradient(cmap='coolwarm')
 
 # %% [markdown] jp-MarkdownHeadingCollapsed=true tags=[]

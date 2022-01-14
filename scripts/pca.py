@@ -19,15 +19,15 @@
 # PCA might not be suitable for our data - see Bishop p559 - although our data may be modelled by a continuous latent variable in some sense, describing "how cancerous" the points are (and inventing the notion of cancerousness)
 
 # %%
+# %matplotlib widget
+
+# %%
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 
 import ipywidgets as widgets
-
-# %%
-plt.style.available
 
 # %% tags=[]
 plt.style.use("seaborn-whitegrid")
@@ -140,12 +140,6 @@ widgets.interact(
 # %%
 contributions.T.plot.bar(figsize=(14, 14), stacked=True)
 
-# %%
-plt.figure(figsize=(20, 10))
-plt.title("PCA transformed data")
-sns.scatterplot(x=PC_data["PC1"], y=PC_data["PC2"], hue=PC_data["class"])
-plt.show()
-
 
 # %%
 def plotpc(component):
@@ -156,7 +150,7 @@ def plotpc(component):
     b = wh(f"PC{component}", 0)
     m = wh(f"PC{component}", 1)
     
-    plt.figure(figsize=(20, 10))
+    plt.figure(figsize=(10, 5))
     plt.scatter(b, [0] * len(b), label="Benign")
     plt.scatter(m, [0] * len(m), label="Malignant")
     
@@ -172,47 +166,33 @@ widgets.interact(
 # We can alter the size of the datapoints according to the third principal component to force an illusion of depth on the chart.
 
 # %%
-plt.figure(figsize=(20, 10))
+plt.figure(figsize=(10, 5))
 sns.scatterplot(x=PC_data['PC1'], y=PC_data['PC2'], s=5 * np.exp(10 * PC_data["PC3"]), hue=PC_data['class'])
 plt.show()
 
-
 # %%
-def drawax3d(elevation, rotation, comp4scale):
-    # Rescale PC4 to contain values in the interval [0, infty)
-    # rescale_component = lambda x: np.abs(PC_data["PC4"].min()) + comp4scale + np.exp(6 * x)
-    
-    # Get the values for feature f which has label l
-    resset = lambda f, l: PC_data[PC_data["class"] == l][f]
-    
-    # Create a plot and 3d axes
-    fig = plt.figure(figsize=(15, 15))
-    ax = plt.axes(projection="3d")
+# Get the values for feature f which has label l
+resset = lambda f, l: PC_data[PC_data["class"] == l][f]
 
-    # Create an artist for each of the benign and malignant cases
-    ax.scatter3D(resset("PC1", 0), resset("PC2", 0), resset("PC3", 0), label="Benign")
-    ax.scatter3D(resset("PC1", 1), resset("PC2", 1), resset("PC3", 1), label="Malignant")
-    
-    # Set the rotation and axes labels
-    ax.view_init(elevation, rotation)
-    ax.set_xlabel("PC1")
-    ax.set_ylabel("PC2")
-    ax.set_zlabel("PC3")
-    
-    # Display the legend
-    ax.legend(loc=1)
+# Create a plot and 3d axes
+fig = plt.figure(figsize=(10, 10))
+ax = plt.axes(projection="3d")
 
-widgets.interact(
-    drawax3d, 
-    elevation=widgets.IntSlider(min=0, max=90, value=30),
-    rotation=widgets.IntSlider(min=0, max=360, value=30),
-    comp4scale=widgets.IntSlider(min=1, max=100, value=10)
-); None
+# Create an artist for each of the benign and malignant cases
+ax.scatter3D(resset("PC1", 0), resset("PC2", 0), resset("PC3", 0), label="Benign")
+ax.scatter3D(resset("PC1", 1), resset("PC2", 1), resset("PC3", 1), label="Malignant")
+
+# Set the rotation and axes labels
+ax.view_init(elevation, rotation)
+ax.set_xlabel("PC1")
+ax.set_ylabel("PC2")
+ax.set_zlabel("PC3")
+
+# Display the legend
+ax.legend(loc=1)
 
 # %% [markdown]
 # # Data export
 
 # %%
 PC_data.to_csv("../data/data-pca.csv", index=False)
-
-# %%

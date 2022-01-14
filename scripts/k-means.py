@@ -14,6 +14,9 @@
 # ---
 
 # %%
+# %matplotlib widget
+
+# %%
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -233,11 +236,13 @@ def test_models(data, cluster_range, n_epochs, distance_function="euclidean", ve
         cluster_model.inertia = np.mean(inertias)
         models.append(cluster_model)
     
-    plt.plot(cluster_range, [i.inertia for i in models], marker="o")
+    fig, ax = plt.subplots()
     
-    plt.xlabel("Number of centroids (K)")
-    plt.ylabel("Mean inertia")
-    plt.xticks(cluster_range)
+    ax.plot(cluster_range, [i.inertia for i in models], marker="o")
+    
+    ax.set_xlabel("Number of centroids (K)")
+    ax.set_ylabel("Mean inertia")
+    ax.set_xticks(cluster_range)
     
     plt.show()
     
@@ -276,9 +281,12 @@ models = test_models(data_pca, cluster_range, epochs, distance_function="euclide
 model = KMeansModel(copy(data_pca), K=2, distance="euclidean")
 
 
-# %% tags=[]
+# %%
 
-def interactive_demo(K, distance="euclidean", colour="class"):
+def interactive_demo(K, fig, ax, distance="euclidean", colour="class"):
+    
+    plt.cla()
+    
     model = KMeansModel(copy(data_pca), K=K, distance=distance)
 
     # SSC = subset class
@@ -288,22 +296,22 @@ def interactive_demo(K, distance="euclidean", colour="class"):
     
     if colour == "class":
         # Create an artist for the data and clusters
-        plt.scatter(ssc("PC1", 0), ssc("PC2", 0), c="orange", label="Benign")
-        plt.scatter(ssc("PC1", 1), ssc("PC2", 1), c="purple", label="Malignant")
-        plt.scatter(model.centers[:, 0], model.centers[:, 1], label="Cluster", marker="X", c="green", s=100)
+        ax.scatter(ssc("PC1", 0), ssc("PC2", 0), c="orange", label="Benign", s=10)
+        ax.scatter(ssc("PC1", 1), ssc("PC2", 1), c="purple", label="Malignant", s=10)
+        ax.scatter(model.centers[:, 0], model.centers[:, 1], label="Cluster", marker="X", c="green", s=100)
     elif colour == "cluster":
         for i, v in enumerate(model.centers):
-            plt.scatter(ssg("PC1", i), ssg("PC2", i), label=f"Cluster {i+1}")
-            plt.scatter(v[0], v[1], label=f"Center {i+1}", marker="X", s=100)
+            ax.scatter(ssg("PC1", i), ssg("PC2", i), label=f"Cluster {i+1}", s=10)
+            ax.scatter(v[0], v[1], label=f"Center {i+1}", marker="X", s=100)
     
-    plt.legend(loc=1)
-    plt.show()
+    ax.legend()
+    fig.canvas.draw()
 
-
-# %%
+fig, ax = plt.subplots()
+    
 widgets.interact(
     interactive_demo, 
-    K=widgets.IntSlider(min=1, max=20, value=2),
+    K=widgets.BoundedIntText(min=1, max=20, value=2),
     distance=widgets.RadioButtons(
         options=["euclidean", "manhattan"],
         description="Distance function"
@@ -311,6 +319,11 @@ widgets.interact(
     colour=widgets.RadioButtons(
         options=["class", "cluster"],
         description="Colour points by"
-    )
-)
-None
+    ),
+    fig=widgets.fixed(fig),
+    ax=widgets.fixed(ax)
+); None
+
+# %%
+
+# %%
