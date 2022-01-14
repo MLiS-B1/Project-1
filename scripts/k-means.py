@@ -13,14 +13,26 @@
 #     name: conda-env-mlis-project-py
 # ---
 
+# %% [markdown]
+# # K-means
+
+# %% [markdown]
+# K-means is an algorithm which attempts to group each point in the dataset into exactly one of $K$ clusters based on the distance from that point to the cluster. Once each point is assigned, the position of the clusters center is updated based on the mean position of all the points assigned to it.
+#
+# This is a turbulent algorithm which quickly converges to local minima, however can be very informative in determining the optimum number of clusters to assign to data. This number is found at the "elbow point" of a graph plotting the model inertia agains $K$.
+#
+# Here we implement K-means and allow for the specification of an arbitry measure of distance between two points. The two chosen to analyse here are Euclidean and Manhattan distance.
+
+# %% [markdown] tags=[]
+# ## Data handling
+
 # %%
-# %matplotlib widget
+# %matplotlib inline
 
 # %%
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-from sklearn.metrics import classification_report
 from copy import copy
 from itertools import repeat
 
@@ -30,59 +42,21 @@ from tqdm.notebook import tqdm
 
 import ipywidgets as widgets
 
-# %% tags=[]
-data = pd.read_csv(
-    "../data/data-processed.csv"
-)
-data
-
-# %% [markdown] tags=[]
-# ## SKLearn implementation of K-Means
-
-# %%
-# we cannot use this this is just for understanding
-from sklearn.cluster import KMeans
-from sklearn.preprocessing import MinMaxScaler
-import plotly.graph_objects as go
-import numpy as np
-X = data
-scaler = MinMaxScaler()
-scaler.fit(X)
-X=scaler.transform(X)
-inertia = []
-for i in range(1,11):
-    kmeans = KMeans(
-        n_clusters=i, init="k-means++",
-        n_init=10,
-        tol=1e-04, random_state=42
-    )
-    kmeans.fit(X)
-    inertia.append(kmeans.inertia_)
-fig = go.Figure(data=go.Scatter(x=np.arange(1,11),y=inertia))
-fig.update_layout(title="Inertia vs Cluster Number",xaxis=dict(range=[0,11],title="Cluster Number"),
-                  yaxis={'title':'Inertia'},
-                 annotations=[
-        dict(
-            x=2,
-            y=inertia[1],
-            xref="x",
-            yref="y",
-            text="Elbow!",
-            showarrow=True,
-            arrowhead=7,
-            ax=20,
-            ay=-40
-        )
-    ])
-
-# %% [markdown] tags=[]
-# ## Custom implementation of K-Means
-#
-# - Consider the Manhattan distance metric as well as Euclidean
-
 # %%
 np.set_printoptions(precision=2)
 
+# %% tags=[]
+orig_data = pd.read_csv(
+    "../data/data-processed.csv"
+)
+orig_data
+
+
+# %% [markdown] tags=[] jp-MarkdownHeadingCollapsed=true
+# ## Implementation of K-Means
+
+# %%
+# Utility class to store the output of the algorithm
 class Model:
     def __init__(self, 
         inertia=None,
@@ -108,13 +82,14 @@ class Model:
             i += 1
 
 
-
 # %%
-# Find the closest cluster for each point
+# Vectorised function to assign points to clusters
 def closest_cluster(row, centers=None, distance_function=None):
     dists = dict(zip(range(len(centers)), map(distance_function, centers, repeat(row.values))))
     return min(dists, key=lambda x: dists[x])
 
+
+# %%
 def KMeansModel(
     data, 
     K, 
@@ -197,24 +172,11 @@ def KMeansModel(
     
     return model
 
-# %%
-model = KMeansModel(copy(data), 2)
 
 # %%
-model.summary()
-
-# %%
-model.purities[0] == model.purities[1]
-
-
-# %% [markdown]
-# ## Elbow diagram generation
-
-# %% [markdown]
-# ### Euclidean distance
-
-# %%
+# Function to take the average over several models with randomised starting points
 def test_models(data, cluster_range, n_epochs, distance_function="euclidean", verbose=True):
+    np.random.seed(42)
     models = []
     
     for i in cluster_range:
@@ -249,50 +211,121 @@ def test_models(data, cluster_range, n_epochs, distance_function="euclidean", ve
     return models
 
 
-# %%
-cluster_range = range(1, 4)
-epochs = 2
+# %% [markdown]
+# ## Application to data
+
+# %% [markdown] jp-MarkdownHeadingCollapsed=true tags=[]
+# ### Using the original data
 
 # %%
-models = test_models(data, cluster_range, epochs, distance_function="euclidean", verbose=True)
+orig_model = KMeansModel(copy(orig_data), 2)
+
+# %%
+orig_model.summary()
+
+# %% [markdown] tags=[]
+# #### Using Euclidean distance
+
+# %%
+cluster_range = range(1, 9)
+epochs = 10
+verbose=True
+
+# %%
+test_models(orig_data, cluster_range, epochs, distance_function="euclidean", verbose=verbose); None
 
 # %% [markdown]
 # A clear elbow point is visible at $k=2$
 
+# %% [markdown] tags=[]
+# #### Manhattan distance
+
+# %%
+test_models(orig_data, cluster_range, epochs, distance_function="manhattan", verbose=verbose); None
+
+# %% [markdown] tags=[] jp-MarkdownHeadingCollapsed=true
+# ### Using PCA data
+
+# %%
+pca_data = pd.read_csv("../data/data-pca.csv")
+
+# %%
+pca_model = KMeansModel(copy(pca_data), K=2, distance="euclidean")
+
+# %% [markdown] tags=[]
+# #### Using Euclidean distance
+
+# %%
+test_models(pca_data, cluster_range, epochs, distance_function="euclidean", verbose=verbose); None
+
+# %% [markdown] tags=[]
+# #### Manhattan distance
+
+# %%
+test_models(pca_data, cluster_range, epochs, distance_function="manhattan", verbose=verbose); None
+
+# %% [markdown] jp-MarkdownHeadingCollapsed=true tags=[]
+# ### Position of the centers
+
 # %% [markdown]
-# ### Manhattan distance
+# We can now look at the position of the centers we get using these different datasets and algorithms. To make the comparison between PCA and original data meaningful, we transform the PCA center positions back into the original coordinate system.
 
 # %%
-models = test_models(data, cluster_range, epochs, distance_function="manhattan", verbose=False)
+# Custom defined functions to implement switching to and from the original dataset
+from pca_transform import transform, recover
+
+# Transfer the PCA means into the space of the original data
+pca_centers = recover(pca_model.centers)
+
+# Construct a data frame so we can see what is happening
+centers = pd.DataFrame(
+    pca_centers[::-1], 
+    columns=orig_data.columns[:-1],
+    index=["PCA centers"] * pca_model.centers.shape[0]
+)
+centers = centers.append(pd.DataFrame(
+        orig_model.centers,
+        columns=orig_data.columns[:-1],
+        index=["Original data centers"] * orig_model.centers.shape[0]
+    )
+)
+
+# %%
+centers
+
+# %%
+orig_model.centers - pca_centers[::-1, :]
+
 
 # %% [markdown]
-# # Using PCA
+# There is statistically no difference between the PCA transformed means and those calculated from the original data.
+
+# %% [markdown] tags=[]
+# ### Visualising the data
+
+# %% [markdown]
+# We can use the PCA dataset to visualise the results of our data in a meaninfgul way
 
 # %%
-data_pca = pd.read_csv("../data/data-pca.csv")
-
-cols = ["PC1", "PC2", "PC3", "class"]
-data_pca = data_pca[cols]
-
-# %%
-models = test_models(data_pca, cluster_range, epochs, distance_function="euclidean", verbose=False)
-
-# %%
-model = KMeansModel(copy(data_pca), K=2, distance="euclidean")
-
-
-# %%
-
-def interactive_demo(K, fig, ax, distance="euclidean", colour="class"):
+def interactive_demo(dataset, K, fig, ax, distance="euclidean", colour="class"):
     
-    plt.cla()
-    
-    model = KMeansModel(copy(data_pca), K=K, distance=distance)
+    fig, ax = plt.subplots()
 
+    
+    if dataset == "original":
+        data = orig_data
+    elif dataset == "PCA":
+        data = pca_data
+    
+    model = KMeansModel(copy(data), K=K, distance=distance)
+        
     # SSC = subset class
     # SSG = subset group (cluster)
-    ssc = lambda f, l: model.data[model.data["class"] == l][f]
-    ssg = lambda f, c: model.data[model.data["clusterIndex"] == c][f]
+    ssc = lambda f, l: pca_data[pca_data["class"] == l][f]
+    ssg = lambda f, c: pca_data[model.data["clusterIndex"] == c][f]
+    
+    if dataset == "original":
+        model.centers = transform(model.centers)
     
     if colour == "class":
         # Create an artist for the data and clusters
@@ -307,10 +340,13 @@ def interactive_demo(K, fig, ax, distance="euclidean", colour="class"):
     ax.legend()
     fig.canvas.draw()
 
-fig, ax = plt.subplots()
     
 widgets.interact(
     interactive_demo, 
+    dataset=widgets.RadioButtons(
+        options=["original", "PCA"],
+        description="Which dataset to use"
+    ),
     K=widgets.BoundedIntText(min=1, max=20, value=2),
     distance=widgets.RadioButtons(
         options=["euclidean", "manhattan"],
@@ -320,10 +356,6 @@ widgets.interact(
         options=["class", "cluster"],
         description="Colour points by"
     ),
-    fig=widgets.fixed(fig),
-    ax=widgets.fixed(ax)
+    fig=widgets.fixed(1),
+    ax=widgets.fixed(1)
 ); None
-
-# %%
-
-# %%

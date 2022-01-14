@@ -37,7 +37,7 @@ data = pd.read_csv('../data/data-processed.csv')
 data
 
 # %%
-features = list(data.columns)[1:-1]
+features = list(data.columns)[:-1]
 
 X = data[features]
 y = data["class"]
@@ -55,7 +55,7 @@ X_compressed = (X-1) / 9
 X_centered = X_compressed - X_compressed.mean(axis=0)
 
 # These two operations combined should give each column with range = 1
-X_centered.max(axis=0) - X_centered.min(axis=0)
+assert (X_centered.max(axis=0) - X_centered.min(axis=0) == 1).all()
 
 X_centered.shape
 
@@ -102,7 +102,7 @@ contributions
 def plot_axes(data, vectors, col_names, show_data, show_vectors):
     origin = np.zeros(2)
     
-    plt.figure(figsize=(15, 12))
+    plt.figure()
     
     if show_data:
         wh = lambda f, l: data[data["class"] == l][f]
@@ -138,7 +138,7 @@ widgets.interact(
 )
 
 # %%
-contributions.T.plot.bar(figsize=(14, 14), stacked=True)
+contributions.T.plot.bar(stacked=True)
 
 
 # %%
@@ -166,8 +166,8 @@ widgets.interact(
 # We can alter the size of the datapoints according to the third principal component to force an illusion of depth on the chart.
 
 # %%
-plt.figure(figsize=(10, 5))
-sns.scatterplot(x=PC_data['PC1'], y=PC_data['PC2'], s=5 * np.exp(10 * PC_data["PC3"]), hue=PC_data['class'])
+plt.figure()
+sns.scatterplot(x=PC_data['PC1'], y=PC_data['PC2'], s=5 * np.exp(6 * PC_data["PC3"]), hue=PC_data['class'])
 plt.show()
 
 # %%
@@ -175,15 +175,14 @@ plt.show()
 resset = lambda f, l: PC_data[PC_data["class"] == l][f]
 
 # Create a plot and 3d axes
-fig = plt.figure(figsize=(10, 10))
+fig = plt.figure()
 ax = plt.axes(projection="3d")
 
 # Create an artist for each of the benign and malignant cases
 ax.scatter3D(resset("PC1", 0), resset("PC2", 0), resset("PC3", 0), label="Benign")
 ax.scatter3D(resset("PC1", 1), resset("PC2", 1), resset("PC3", 1), label="Malignant")
 
-# Set the rotation and axes labels
-ax.view_init(elevation, rotation)
+# Set the axes labels
 ax.set_xlabel("PC1")
 ax.set_ylabel("PC2")
 ax.set_zlabel("PC3")
@@ -196,3 +195,124 @@ ax.legend(loc=1)
 
 # %%
 PC_data.to_csv("../data/data-pca.csv", index=False)
+
+# %%
+import numpy as np
+import pandas as pd
+
+
+data = pd.read_csv('../data/data-processed.csv')
+features = list(data.columns)[:-1]
+
+X = data[features]
+X_compressed = (X-1) / 9
+
+"""
+Subtract one
+Divide by 9
+matmul
+
+matmul
+Multiply by 9
+Add one
+"""
+
+mu = X_compressed.mean(axis=0).values
+X_centered = X_compressed - mu
+
+covariance = X_centered.cov()
+_, vectors = np.linalg.eig(covariance)
+
+def restore(arr):
+    return (np.linalg.inv(vectors).dot(arr) + mu.reshape(-1, 1)) * 9
+
+# (NxD)(DxD) => NxD
+
+def transform(arr):
+    return (((arr + mu) * 9) + 1).dot(vectors.T)
+
+
+# %%
+pc = PC_data.iloc[0, :-1].values.reshape(1, -1)
+ori = data.iloc[0, :-1].values.reshape(1, -1)
+
+# %%
+ori
+
+# %%
+pc
+
+# %%
+(((ori + mu) * 9) + 1).dot(vectors.T)
+
+# %%
+restore(pc)
+
+# %%
+c1 = X.iloc[0, :].values.reshape(1, -1)
+p1 = PC_data.iloc[0, :-1].values.reshape(1, -1)
+
+# %%
+c1.shape
+
+# %%
+p1.shape
+
+# %%
+t = lambda arr: arr.dot(vectors)
+
+# %%
+r = lambda arr: arr.dot(np.linalg.inv(vectors))
+
+# %%
+t(c1)
+
+# %%
+X.iloc[0, :].values.reshape(1, -1)
+
+# %%
+c1
+
+# %%
+r(p1)
+
+# %%
+comp = r(p1) + mu
+
+# %%
+(comp * 9) + 1
+
+# %%
+mu = X_compressed.mean(axis=0).values.reshape(1, -1)
+
+def recover(arr):
+    invrs = arr.dot(np.linalg.inv(vectors))
+    return (((invrs + mu) * 9) + 1)
+
+def transform(arr):
+    rescale = ((arr - 1) / 9) - mu
+    return rescale.dot(vectors)
+
+
+# %%
+recover(p1)
+
+# %%
+c1
+
+# %%
+transform(c1)
+
+# %%
+p1
+
+# %%
+x = np.array([[1, 2, 3, 4, 5, 6, 7, 8, 9]])
+xt = transform(x)
+xr = recover(xt)
+
+# %%
+x
+
+# %%
+xr

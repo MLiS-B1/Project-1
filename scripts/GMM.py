@@ -289,11 +289,14 @@ def GMM(data, K, seed=42, maxiter=1e3, stop_threshold=1e-3, verbose=True):
 # # Fit and result
 
 # %%
-K = 2
+K = 3
 
 gmm_model = GMM(clustering_data, K)
 gmm_model.plot_likelihood()
 
+
+# %% [markdown]
+# Converting the Gaussian functions into the feature space
 
 # %% [markdown] tags=[]
 # ## Matplotlib functions
@@ -333,17 +336,13 @@ def drawax3d(model, ax, resolution=.1):
     # Create a plot and 3d axes
     range_pc1 = range(-3, 3)
     range_pc2 = range(-3, 3)
-    
-    enabled = [True, True]
-    
+        
     pc1, pc2 = np.mgrid[range_pc1[0]:range_pc1[-1]:resolution, range_pc2[0]:range_pc2[-1]:resolution]
     position = np.empty(pc1.shape + (2,))
     position[:, :, 0] = pc1
     position[:, :, 1] = pc2
             
     for i in range(model.K):
-        if not enabled[i]:
-            continue
         z = np.apply_along_axis(samplers[i], 2, position)
         # ax.plot_wireframe(pc1, pc2, z, rstride=5, cstride=5)
         ax.plot_surface(pc1, pc2, z, cmap="coolwarm", linewidth=0, antialiased=True, rstride=1, cstride=1)
@@ -355,7 +354,7 @@ def drawax3d(model, ax, resolution=.1):
     ax.set_ylabel("PC2")
     ax.set_zlabel("Probability")
     ax.set_title("Visualisation of the Gaussian mixture surface.")
-    
+
 
 # %% [markdown]
 # ## Visualisations
@@ -372,6 +371,8 @@ plt.show()
 
 # %% [markdown]
 # # Clustering on the original data.
+#
+# GMM models do not converge on the original data, as there is too great of a linear dependence between columns. This is the same reason that only PC1 and PC2 are used on the PCA dataset.
 
 # %%
 orig_data = pd.read_csv("../data/data-processed.csv")
