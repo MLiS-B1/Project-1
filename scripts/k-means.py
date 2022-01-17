@@ -47,7 +47,7 @@ np.set_printoptions(precision=2)
 
 # %% tags=[]
 orig_data = pd.read_csv(
-    "../data/data-processed.csv"
+    "../data/data-balanced.csv"
 )
 orig_data
 
@@ -227,8 +227,8 @@ orig_model.summary()
 # #### Using Euclidean distance
 
 # %%
-cluster_range = range(1, 9)
-epochs = 10
+cluster_range = range(1, 5)
+epochs = 1
 verbose=True
 
 # %%
@@ -359,3 +359,7 @@ widgets.interact(
     fig=widgets.fixed(1),
     ax=widgets.fixed(1)
 ); None
+
+# %%
+
+# %%

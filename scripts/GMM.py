@@ -289,7 +289,7 @@ def GMM(data, K, seed=42, maxiter=1e3, stop_threshold=1e-3, verbose=True):
 # # Fit and result
 
 # %%
-K = 3
+K = 2
 
 gmm_model = GMM(clustering_data, K)
 gmm_model.plot_likelihood()

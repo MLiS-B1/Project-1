@@ -243,3 +243,16 @@ corr.style.background_gradient(cmap='coolwarm')
 
 # %%
 data.to_csv("../data/data-processed.csv", index=False)
+
+# %% [markdown]
+# Balancing
+
+# %%
+data_malignant = data[data["class"] == 1]
+data_benign = data[data["class"] == 0]
+data_benign = data_benign.iloc[:data_malignant.shape[0], :]
+
+data_even = pd.concat((data_malignant, data_benign))
+
+# %%
+data_even.to_csv("../data/data-balanced.csv", index=False)
