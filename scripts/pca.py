@@ -69,6 +69,18 @@ covariance
 # %%
 values, vectors = np.linalg.eig(covariance)
 
+# %%
+loading = lambda x: x / np.sum(values)
+
+# %%
+sum([loading(i) for i in values])
+
+# %%
+loading(values[0]) + loading(values[1]) + loading(values[2])
+
+# %%
+loading(values[0])
+
 # %% [markdown]
 # Step 3. Project the centered data onto the eigenvectors of $\Sigma$
 
@@ -195,124 +207,3 @@ ax.legend(loc=1)
 
 # %%
 PC_data.to_csv("../data/data-pca.csv", index=False)
-
-# %%
-import numpy as np
-import pandas as pd
-
-
-data = pd.read_csv('../data/data-processed.csv')
-features = list(data.columns)[:-1]
-
-X = data[features]
-X_compressed = (X-1) / 9
-
-"""
-Subtract one
-Divide by 9
-matmul
-
-matmul
-Multiply by 9
-Add one
-"""
-
-mu = X_compressed.mean(axis=0).values
-X_centered = X_compressed - mu
-
-covariance = X_centered.cov()
-_, vectors = np.linalg.eig(covariance)
-
-def restore(arr):
-    return (np.linalg.inv(vectors).dot(arr) + mu.reshape(-1, 1)) * 9
-
-# (NxD)(DxD) => NxD
-
-def transform(arr):
-    return (((arr + mu) * 9) + 1).dot(vectors.T)
-
-
-# %%
-pc = PC_data.iloc[0, :-1].values.reshape(1, -1)
-ori = data.iloc[0, :-1].values.reshape(1, -1)
-
-# %%
-ori
-
-# %%
-pc
-
-# %%
-(((ori + mu) * 9) + 1).dot(vectors.T)
-
-# %%
-restore(pc)
-
-# %%
-c1 = X.iloc[0, :].values.reshape(1, -1)
-p1 = PC_data.iloc[0, :-1].values.reshape(1, -1)
-
-# %%
-c1.shape
-
-# %%
-p1.shape
-
-# %%
-t = lambda arr: arr.dot(vectors)
-
-# %%
-r = lambda arr: arr.dot(np.linalg.inv(vectors))
-
-# %%
-t(c1)
-
-# %%
-X.iloc[0, :].values.reshape(1, -1)
-
-# %%
-c1
-
-# %%
-r(p1)
-
-# %%
-comp = r(p1) + mu
-
-# %%
-(comp * 9) + 1
-
-# %%
-mu = X_compressed.mean(axis=0).values.reshape(1, -1)
-
-def recover(arr):
-    invrs = arr.dot(np.linalg.inv(vectors))
-    return (((invrs + mu) * 9) + 1)
-
-def transform(arr):
-    rescale = ((arr - 1) / 9) - mu
-    return rescale.dot(vectors)
-
-
-# %%
-recover(p1)
-
-# %%
-c1
-
-# %%
-transform(c1)
-
-# %%
-p1
-
-# %%
-x = np.array([[1, 2, 3, 4, 5, 6, 7, 8, 9]])
-xt = transform(x)
-xr = recover(xt)
-
-# %%
-x
-
-# %%
-xr
