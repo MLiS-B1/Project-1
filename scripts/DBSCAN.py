@@ -158,8 +158,11 @@ plt.show()
 # ## Interactive
 
 # %%
+data[features]
+
+# %%
 features = data.columns[:-1]
-cluster_matrix = DBSCAN(data[features].values, .05, 5, verbose=True)
+cluster_matrix = DBSCAN(data[features].values, 0.45, 30, verbose=True)
 
 # %%
 fig, ax = plt.subplots()
@@ -170,20 +173,16 @@ for v in np.unique(cluster_matrix):
         label = "Outlier"
     else:
         label = f"Cluster {int(v)}"
-    ax.scatter(data_at_cluster("PC1", v), data_at_cluster("PC2", v), label=label, s=5)
+    ax.scatter(data_at_cluster("PC1", v), data_at_cluster("PC2", v), label=label)
 
-plt.legend(loc=1)
+plt.xlabel("PC1")
+plt.ylabel("PC2")
+plt.legend()
 plt.show()
 
 
 # %%
-def generate_model(data, radius, core_point_threshold, ax, fig, training_data=None):
-    # Use PC1 and PC2 to plot
-    features = ["PC1", "PC2"]
-    
-    if not training_data:
-        training_data = data[features].values
-    
+def generate_model(data, radius, core_point_threshold, ax, fig):    
     # Get the clustering after applying the algorithm to the data
     cluster_matrix = DBSCAN(data[features].values, radius, core_point_threshold, verbose=False)
     
@@ -226,7 +225,7 @@ widgets.interact(
     ),
     core_point_threshold=widgets.BoundedIntText(
         min=1,
-        max=20,
+        max=30,
         description="Core point threshold:",
         value=20
     ),
@@ -237,6 +236,31 @@ widgets.interact(
 ); None
 
 # %% [markdown]
+# # Specificity and Sensetivity
+
+# %%
+from utility import specificty_sensetivity
+
+labels = data["class"].values
+cluster_matrix = DBSCAN(data[features].values, 0.45, 30, verbose=True)
+
+# %%
+# Re-encode the cluster classes into the features and labels, and remove points the algorithm marks as noise
+cluster_matrix[cluster_matrix == 0] = np.nan
+cluster_matrix[cluster_matrix == 1] = 1
+cluster_matrix[cluster_matrix == 2] = 0
+
+# %%
+pred_not_nan = cluster_matrix[~np.isnan(cluster_matrix)]
+labels_not_nan = labels[~np.isnan(cluster_matrix)]
+diff = np.stack((labels_not_nan, pred_not_nan), 1)
+
+specificty_sensetivity(diff)
+
+# %% [markdown]
+# Note that these statistics are only on the data not filtered as noise, making them very inaccurate.
+
+# %% [markdown] tags=[]
 # # Using the original data
 
 # %%
@@ -276,3 +300,5 @@ fig.canvas.draw()
 
 # %% [markdown]
 # This is how DBSCAN would classify the original data, represented in terms of PC1 and PC2
+
+# %%
