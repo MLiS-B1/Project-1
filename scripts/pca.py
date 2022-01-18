@@ -205,5 +205,13 @@ ax.legend(loc=1)
 # %% [markdown]
 # # Data export
 
+# %% [markdown]
+# We are keeping only the first three PCs as they conserve over 80% of the variance in the data
+
 # %%
-PC_data.to_csv("../data/data-pca.csv", index=False)
+features = ["PC1", "PC2", "PC3", "class"]
+
+# %%
+PC_data[features].to_csv("../data/data-pca.csv", index=False)
+
+# %%
