@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 # ---
 # jupyter:
 #   jupytext:
@@ -27,7 +28,7 @@
 # ## Data handling
 
 # %%
-# %matplotlib inline
+# %matplotlib widget
 
 # %%
 import numpy as np
@@ -229,7 +230,7 @@ orig_model.summary()
 # %%
 cluster_range = range(1, 9)
 epochs = 10
-verbose=True
+verbose = False
 
 # %%
 test_models(orig_data, cluster_range, epochs, distance_function="euclidean", verbose=verbose); None
@@ -272,14 +273,17 @@ test_models(pca_data, cluster_range, epochs, distance_function="manhattan", verb
 
 # %%
 # Custom defined functions to implement switching to and from the original dataset
-from pca_transform import transform, recover
+from utility import transform, recover
+
+# Pad the other dimensions with zero (the mean value for those features in PCA space)
+centers_padded = np.pad(pca_model.centers, ((0, 0), (0, 6)))
 
 # Transfer the PCA means into the space of the original data
-pca_centers = recover(pca_model.centers)
+pca_centers = recover(centers_padded)
 
 # Construct a data frame so we can see what is happening
 centers = pd.DataFrame(
-    pca_centers[::-1], 
+    pca_centers, 
     columns=orig_data.columns[:-1],
     index=["PCA centers"] * pca_model.centers.shape[0]
 )
@@ -290,15 +294,14 @@ centers = centers.append(pd.DataFrame(
     )
 )
 
-# %%
 centers
 
 # %%
-orig_model.centers - pca_centers[::-1, :]
+np.sqrt(np.mean((orig_model.centers - pca_centers[:, :]) ** 2))
 
 
 # %% [markdown]
-# There is statistically no difference between the PCA transformed means and those calculated from the original data.
+# RMSE between original and PCA clusters
 
 # %% [markdown] tags=[]
 # ### Visualising the data
@@ -309,7 +312,7 @@ orig_model.centers - pca_centers[::-1, :]
 # %%
 def interactive_demo(dataset, K, fig, ax, distance="euclidean", colour="class"):
     
-    fig, ax = plt.subplots()
+    fig, ax = plt.subplots(figsize=plt.figaspect(0.5))
 
     
     if dataset == "original":
@@ -359,3 +362,32 @@ widgets.interact(
     fig=widgets.fixed(1),
     ax=widgets.fixed(1)
 ); None
+
+# %%
+c = orig_model.data.corr()
+c.style.background_gradient(cmap="coolwarm")
+
+# %% [markdown]
+# # Specificity and sensetivity
+
+# %%
+from utility import specificty_sensetivity
+
+# %%
+pred = pca_model.data["clusterIndex"].values
+
+truth = pca_model.data["class"].values
+diff = np.stack((truth, pred), 1)
+
+specificty_sensetivity(difference_mat=diff)
+
+# %%
+pred = orig_model.data["clusterIndex"].values
+
+truth = orig_model.data["class"].values
+diff = np.stack((truth, pred), 1)
+
+specificty_sensetivity(difference_mat=diff)
+
+# %% [markdown]
+# Speficicity is reported first, then sensetivity then accuracy. In the case of cancer diagnosis, sensetivity is the most important factor as 

@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 # ---
 # jupyter:
 #   jupytext:
@@ -114,12 +115,12 @@ contributions
 def plot_axes(data, vectors, col_names, show_data, show_vectors):
     origin = np.zeros(2)
     
-    plt.figure()
+    plt.figure(figsize=plt.figaspect(0.5))
     
     if show_data:
         wh = lambda f, l: data[data["class"] == l][f]
-        plt.scatter(wh("PC1", 0), wh("PC2", 0), label="Benign", s=10)
-        plt.scatter(wh("PC1", 1), wh("PC2", 1), label="Malignant", s=10)
+        plt.scatter(wh("PC1", 0), wh("PC2", 0), label="Benign")
+        plt.scatter(wh("PC1", 1), wh("PC2", 1), label="Malignant")
 
     plt.scatter(*origin, label="Origin")
         
@@ -130,7 +131,7 @@ def plot_axes(data, vectors, col_names, show_data, show_vectors):
     if show_vectors:
         for i in range(vectors.shape[1]):
             plt.arrow(*origin, *vector_components(i), width=0.01)
-            plt.text(*(1.1 * vector_components(i)), col_names[i], fontsize=14)
+            plt.text(*(1 * vector_components(i)), col_names[i], fontsize=10)
 
     plt.grid()
 
@@ -150,7 +151,79 @@ widgets.interact(
 )
 
 # %%
-contributions.T.plot.bar(stacked=True)
+# Code for displaying arrows and annotations in 3d 
+# from https://gist.github.com/WetHat/1d6cd0f7309535311a539b42cccca89c
+
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d.proj3d import proj_transform
+from mpl_toolkits.mplot3d.axes3d import Axes3D
+from matplotlib.text import Annotation
+
+class Annotation3D(Annotation):
+
+    def __init__(self, text, xyz, *args, **kwargs):
+        super().__init__(text, xy=(0, 0), *args, **kwargs)
+        self._xyz = xyz
+
+    def draw(self, renderer):
+        x2, y2, z2 = proj_transform(*self._xyz, self.axes.M)
+        self.xy = (x2, y2)
+        super().draw(renderer)
+        
+def _annotate3D(ax, text, xyz, *args, **kwargs):
+    '''Add anotation `text` to an `Axes3d` instance.'''
+
+    annotation = Annotation3D(text, xyz, *args, **kwargs)
+    ax.add_artist(annotation)
+
+setattr(Axes3D, 'annotate3D', _annotate3D)
+
+fig = plt.figure(figsize=plt.figaspect(0.5))
+ax = fig.add_subplot(111, projection='3d')
+
+def plot_axes3d(show_data, show_vectors):
+    plt.cla()
+    
+    # Plot the data
+    wh = lambda f, l: PC_data[PC_data["class"] == l][f]
+    if show_data:
+        ax.scatter(wh("PC1", 0), wh("PC2", 0), wh("PC3", 0), label="Benign", s=1)
+        ax.scatter(wh("PC1", 1), wh("PC2", 1), wh("PC3", 1), label="Malignant", s=1)
+    else:
+        ax.set_xlim(-1, 1)
+        ax.set_ylim(-1, 1)
+        ax.set_zlim(-1, 1)
+    # Plot the vectors
+    origin = (0, 0, 0)
+
+    # Define the end points
+    comp = lambda f: vectors[f, 0:3] 
+    if show_vectors:
+
+        for i, f in enumerate(data.columns[:-1]):
+            v = comp(i)
+            ax.quiver(*origin, *v, label=f)
+            ax.annotate3D(f, v, xytext=(3, 3), textcoords='offset points', fontsize=8)
+
+    ax.set_xlabel('PC1')
+    ax.set_ylabel('PC2')
+    ax.set_zlabel('PC3')
+
+
+    
+    plt.title('Basis vectors in PC space')
+
+    plt.draw()
+    plt.show()
+    
+widgets.interact(
+    plot_axes3d,
+    show_data=widgets.Checkbox(value=True),
+    show_vectors=widgets.Checkbox(value=True)
+)
+
+# %%
+contributions.T.plot.bar(stacked=True, figsize=plt.figaspect(0.5))
 
 
 # %%
@@ -162,7 +235,7 @@ def plotpc(component):
     b = wh(f"PC{component}", 0)
     m = wh(f"PC{component}", 1)
     
-    plt.figure(figsize=(10, 5))
+    plt.figure(figsize=plt.figaspect(0.5))
     plt.scatter(b, [0] * len(b), label="Benign")
     plt.scatter(m, [0] * len(m), label="Malignant")
     
@@ -178,7 +251,7 @@ widgets.interact(
 # We can alter the size of the datapoints according to the third principal component to force an illusion of depth on the chart.
 
 # %%
-plt.figure()
+plt.figure(figsize=plt.figaspect(0.5))
 sns.scatterplot(x=PC_data['PC1'], y=PC_data['PC2'], s=5 * np.exp(6 * PC_data["PC3"]), hue=PC_data['class'])
 plt.show()
 
@@ -187,7 +260,7 @@ plt.show()
 resset = lambda f, l: PC_data[PC_data["class"] == l][f]
 
 # Create a plot and 3d axes
-fig = plt.figure()
+fig = plt.figure(figsize=plt.figaspect(0.5))
 ax = plt.axes(projection="3d")
 
 # Create an artist for each of the benign and malignant cases
@@ -205,5 +278,11 @@ ax.legend(loc=1)
 # %% [markdown]
 # # Data export
 
+# %% [markdown]
+# We are keeping only the first three PCs as they conserve over 80% of the variance in the data
+
 # %%
-PC_data.to_csv("../data/data-pca.csv", index=False)
+features = ["PC1", "PC2", "PC3", "class"]
+
+# %%
+PC_data[features].to_csv("../data/data-pca.csv", index=False)

@@ -28,32 +28,6 @@
 
 # %% [markdown] jp-MarkdownHeadingCollapsed=true tags=[]
 # # Gaussian Mixture Model
-#
-# This method assumes that in each class the data are distributed normally across each of the features, in other words the distribution sampled by the data is expressable as a composition of Gaussians.
-#
-# The composite Gaussian mixture population distribution can be expressed:
-# $$ P(x) = \sum_{k=1}^K \Pi_k N \left( x_i | \mu_k, \Sigma^k \right) $$
-# To normalize this we must normalize the weights $\Pi_k$, and each normal distrinution such that the integral over all space is unitary.
-#
-# The parameters of this distribution can be written $\theta = \left\{ \pi_n, \mu_n, \Sigma_n \right\}$, the weight of the gaussian and the mean and standard deviation of the gaussian. The aim is to find parameters $\theta$ which maximize the likelihood of the observed data. This is the only gaussian mixture of interest.
-#
-# WE can learn these parameters using the Expectation Maximization algorithm. The size of a cluster is given by the eigenvalues of the covariance matrix corresponding to the cluster. The model captures the location and size of each cluster. Therefore the probability of observing soem point $x$ is given:
-# $$ P\left(x\right) = \sum_{k=1}^K\left(\Pi_k N\left(\mu_k,\Sigma_k\right)\right) $$
-# In other words, it is the weighted sum of the probability at each cluster.
-#
-# The algorithm for EM follows:
-# 1. Fix the number of clusters $K$
-# 2. Initialize the parameters $\theta = \left\{ \Pi_k, \mu_k, \Sigma_k \right\},\: k=1,\ldots,K$
-# 3. Calculate the responsibility for each cluster. There is a responsibility $\gamma_{kj}$ of cluster $k$ and datapoint $x_j$ which dictates how much of the overall probability of observing $x_j$ comes from $k$.
-# 4. Calculate the weights $\Pi_k$ from the responsibilities. The overall weight $\Pi_k$ is the likelihood of $k$ to be relevant to some point $x$.
-# 5. Calculate the new mean and covariance matrix from the the weights and responsibilities.
-# 6. Repeat until convergence.
-#
-# This could also be considered like the problem on the EM wikipedia page, with $x$ being a two-featured vector and $z ~ \text{Categorical}(k, \phi)$. In our case, $k=2$ and $\phi_k$, the population probability of benign vs malignant, is unknown and correpsoinding to the weight of each cluster. Interestingly $z$ behaves like a latent variable to this data, although it can be directly observed it is known at the time of data collection. 
-#
-# Our data are labelled, meaning it should be possible to use maximum-likelihood estimation to directly calculate the best parameters. However if not, then EM can also estimate $z$.
-#
-# Note that modelling the underlying data we have as Gaussian is not particuarly valid; in a Normal distribution there is no restriction to the values which may possibly be sampled; whereas in each of our features we define the minimum value to be 1 and the maximum to be 10. 
 
 # %% [markdown]
 # ## Expectation-Maximization
@@ -81,8 +55,8 @@ from functools import partial
 
 # %% tags=[]
 data = pd.read_csv("../data/data-pca.csv")
-clustering_cols = ["PC1", "PC2", "class"]
-clustering_data = data[clustering_cols]
+# clustering_cols = ["PC1", "PC2", "class"]
+clustering_data = data
 
 
 # %% [markdown] tags=[]
@@ -151,7 +125,20 @@ def responsibility(x, model):
 
 
 # %%
+def point_likelihood(x, model):
+    likelihoods = np.empty(len(model.clusters))
+    for i, cluster in enumerate(model.clusters):
+        likelihoods[i] = model.cluster_weights[i] * evaluate_pdf(x, Gaussian(cluster.mean, cluster.cov))
+    return likelihoods
+
+
+# %%
 def compute_likelihood(x, model):
+    return np.log(np.sum(point_likelihood(x, model)))
+
+
+# %%
+def compute_likelihood_old(x, model):
     point_likelihoods = []
     for i, cluster in enumerate(model.clusters):
         probability = evaluate_pdf(x, Gaussian(cluster.mean, cluster.cov))
@@ -172,7 +159,7 @@ def GMM(data, K, seed=42, maxiter=1e3, stop_threshold=1e-3, verbose=True):
     
     # Define which columns are features and data properties
     features = list(data.columns)[:-1]
-    X = data[features].values
+    X = data[features].values    
     n_instances, n_dims = X.shape
     
     # Get K random centers 
@@ -289,7 +276,7 @@ def GMM(data, K, seed=42, maxiter=1e3, stop_threshold=1e-3, verbose=True):
 # # Fit and result
 
 # %%
-K = 3
+K = 2
 
 gmm_model = GMM(clustering_data, K)
 gmm_model.plot_likelihood()
@@ -306,14 +293,18 @@ gmm_model.plot_likelihood()
 
 # %% tags=[]
 # From http://ethen8181.github.io/machine-learning/clustering/GMM/GMM.html
-def plot_gaussians(model, data, ax, resolution=.1, features=["PC1", "PC2"]):
+def plot_gaussians(model, data, ax, resolution=.1, features=["PC1", "PC2"], pc3_coordinate=0, fig=None):
     samplers = [partial(evaluate_pdf, gauss=Gaussian(i.mean, i.cov)) for i in model.clusters]
     class_data = lambda f, l: data[data["class"] == l][f]
     
+    if not fig:
+        fig = plt.gcf()
+    plt.cla()
     x, y = np.mgrid[-3:3:resolution, -3:3:resolution]
-    position = np.empty(x.shape + (2,))
+    position = np.empty(x.shape + (3,))
     position[:, :, 0] = x
     position[:, :, 1] = y
+    position[:, :, 2] = pc3_coordinate
 
     ax.scatter(class_data(features[0], 0), class_data(features[1], 0), label="Benign cases", s=0.4)
     ax.scatter(class_data(features[0], 1), class_data(features[1], 1), label="Malignant cases", s=0.4)
@@ -327,24 +318,28 @@ def plot_gaussians(model, data, ax, resolution=.1, features=["PC1", "PC2"]):
     ax.set_title("Contour plot of the clusters fitted.")
     
     ax.legend(loc=1)
-    # plt.show()
+    fig.canvas.draw()
 
 
 # %%
-def drawax3d(model, ax, resolution=.1):
+def drawax3d(model, ax, resolution=.1, pc3_coordinate=0, fig=None):
     samplers = [partial(evaluate_pdf, gauss=i) for i in model.clusters]
     # Create a plot and 3d axes
     range_pc1 = range(-3, 3)
     range_pc2 = range(-3, 3)
-        
+    
+    if not fig:
+        fig = plt.gcf()
+    plt.cla()
+    
     pc1, pc2 = np.mgrid[range_pc1[0]:range_pc1[-1]:resolution, range_pc2[0]:range_pc2[-1]:resolution]
-    position = np.empty(pc1.shape + (2,))
+    position = np.empty(pc1.shape + (3,))
     position[:, :, 0] = pc1
     position[:, :, 1] = pc2
-            
+    position[:, :, 2] = pc3_coordinate
+
     for i in range(model.K):
         z = np.apply_along_axis(samplers[i], 2, position)
-        # ax.plot_wireframe(pc1, pc2, z, rstride=5, cstride=5)
         ax.plot_surface(pc1, pc2, z, cmap="coolwarm", linewidth=0, antialiased=True, rstride=1, cstride=1)
 
 
@@ -354,6 +349,7 @@ def drawax3d(model, ax, resolution=.1):
     ax.set_ylabel("PC2")
     ax.set_zlabel("Probability")
     ax.set_title("Visualisation of the Gaussian mixture surface.")
+    fig.canvas.draw()
 
 
 # %% [markdown]
@@ -365,45 +361,71 @@ ax1 = fig.add_subplot(1, 2, 1)
 ax2 = fig.add_subplot(1, 2, 2, projection="3d")
 
 plot_gaussians(gmm_model, clustering_data, ax1, resolution=.075)
-drawax3d(gmm_model, ax2, resolution=.1)
+drawax3d(gmm_model, ax2, resolution=.1, pc3_coordinate=0)
 
 plt.show()
-
-# %% [markdown]
-# # Clustering on the original data.
-#
-# GMM models do not converge on the original data, as there is too great of a linear dependence between columns. This is the same reason that only PC1 and PC2 are used on the PCA dataset.
-
-# %%
-orig_data = pd.read_csv("../data/data-processed.csv")
-
-# %%
-orig_data
-
-# %% [markdown]
-# The most important columns to these data have been confirmed through PCA to be UniformityOfCellSize and MarginalAdhesion
-
-# %%
-orig_cols = ["uniformityOfCellSize", "marginalAdhesion", "class"]
-
-# %%
-orig_data[orig_cols]
-
-# %%
-gmm_model_orig = GMM(orig_data[orig_cols], 2)
-
-# %%
-gmm_model_orig.clusters
 
 # %%
 fig = plt.figure(figsize=plt.figaspect(.5))
-ax1 = fig.add_subplot(1, 2, 1)
-ax2 = fig.add_subplot(1, 2, 2, projection="3d")
+ax = fig.add_subplot(projection="3d")
 
-gmm_model_orig.clusters.pop()
-gmm_model_orig.K = 1
+widgets.interact(
+    drawax3d,
+    model=widgets.fixed(gmm_model),
+    data=widgets.fixed(clustering_data),
+    ax=widgets.fixed(ax),
+    resolution=widgets.FloatSlider(min=.1, max=1, step=0.05),
+    features=widgets.fixed(["PC1", "PC2"]),
+    pc3_coordinate=widgets.FloatSlider(min=-1, max=1, step=0.05),
+    fig=widgets.fixed(fig)
+)
 
-plot_gaussians(gmm_model_orig, orig_data, ax1, resolution=.075, features=orig_cols)
-drawax3d(gmm_model_orig, ax2, resolution=.1)
+# %%
+from utility import transform, recover
 
-plt.show()
+# %%
+clusters = gmm_model.clusters
+
+# %%
+means = np.stack([i.mean for i in clusters])
+covs = np.stack([i.cov for i in clusters])
+
+# %%
+means.shape
+
+# %%
+means_padded = np.pad(means, ((0, 0), (0, 6))) # pad the values with the column means, 0 
+means_recovered = recover(means_padded)
+means_recovered[1, :]
+
+# %% [markdown]
+# # Specificity sensetivity curve
+#
+# Generated by artificially favouring one cluster over another
+
+# %%
+from functools import partial
+from utility import specificty_sensetivity
+
+
+# %%
+def make_prediction(x, model, decision_threshold=0.5):
+    # sample probability point belongs to cluster 1
+    # sample probability point belongs to cluster 2
+    likelihoods = point_likelihood(x, model)
+    return (decision_threshold * likelihoods[1]) - ((1 - decision_threshold) * likelihoods[0]) > 0
+    # return likelihoods[1] > likelihoods[0] # 1 for cluster 2, 0 for cluster 1 
+
+
+# %%
+features = ["PC1", "PC2", "PC3"]
+
+pr = partial(make_prediction, model=gmm_model)
+
+predictions = np.apply_along_axis(pr, 1, data[features]).astype(int)
+labels = data["class"].values
+diff = np.stack((labels, predictions), 1)
+
+specificty_sensetivity(diff)
+
+# %%
