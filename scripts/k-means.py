@@ -375,8 +375,12 @@ from utility import specificty_sensetivity
 
 # %%
 pred = pca_model.data["clusterIndex"].values
-
 truth = pca_model.data["class"].values
+
+if np.sum(pred == truth) / len(pred) < 0.5:
+    pred = np.logical_not(pred)
+
+# %%
 diff = np.stack((truth, pred), 1)
 
 specificty_sensetivity(difference_mat=diff)
