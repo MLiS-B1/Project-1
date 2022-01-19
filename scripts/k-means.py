@@ -28,7 +28,7 @@
 # ## Data handling
 
 # %%
-# %matplotlib inline
+# %matplotlib widget
 
 # %%
 import numpy as np
@@ -297,11 +297,11 @@ centers = centers.append(pd.DataFrame(
 centers
 
 # %%
-orig_model.centers - pca_centers[:, :]
+np.sqrt(np.mean((orig_model.centers - pca_centers[:, :]) ** 2))
 
 
 # %% [markdown]
-# There is only a fractional difference between the padded PCA centers projected back into the feature space, and the centroids calculated from the original data including all its features.
+# RMSE between original and PCA clusters
 
 # %% [markdown] tags=[]
 # ### Visualising the data
@@ -312,7 +312,7 @@ orig_model.centers - pca_centers[:, :]
 # %%
 def interactive_demo(dataset, K, fig, ax, distance="euclidean", colour="class"):
     
-    fig, ax = plt.subplots()
+    fig, ax = plt.subplots(figsize=plt.figaspect(0.5))
 
     
     if dataset == "original":
@@ -377,6 +377,14 @@ from utility import specificty_sensetivity
 pred = pca_model.data["clusterIndex"].values
 
 truth = pca_model.data["class"].values
+diff = np.stack((truth, pred), 1)
+
+specificty_sensetivity(difference_mat=diff)
+
+# %%
+pred = orig_model.data["clusterIndex"].values
+
+truth = orig_model.data["class"].values
 diff = np.stack((truth, pred), 1)
 
 specificty_sensetivity(difference_mat=diff)

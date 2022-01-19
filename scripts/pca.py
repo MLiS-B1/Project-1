@@ -114,12 +114,12 @@ contributions
 def plot_axes(data, vectors, col_names, show_data, show_vectors):
     origin = np.zeros(2)
     
-    plt.figure()
+    plt.figure(figsize=plt.figaspect(0.5))
     
     if show_data:
         wh = lambda f, l: data[data["class"] == l][f]
-        plt.scatter(wh("PC1", 0), wh("PC2", 0), label="Benign", s=10)
-        plt.scatter(wh("PC1", 1), wh("PC2", 1), label="Malignant", s=10)
+        plt.scatter(wh("PC1", 0), wh("PC2", 0), label="Benign")
+        plt.scatter(wh("PC1", 1), wh("PC2", 1), label="Malignant")
 
     plt.scatter(*origin, label="Origin")
         
@@ -130,7 +130,7 @@ def plot_axes(data, vectors, col_names, show_data, show_vectors):
     if show_vectors:
         for i in range(vectors.shape[1]):
             plt.arrow(*origin, *vector_components(i), width=0.01)
-            plt.text(*(1.1 * vector_components(i)), col_names[i], fontsize=14)
+            plt.text(*(1 * vector_components(i)), col_names[i], fontsize=10)
 
     plt.grid()
 
@@ -150,7 +150,7 @@ widgets.interact(
 )
 
 # %%
-contributions.T.plot.bar(stacked=True)
+contributions.T.plot.bar(stacked=True, figsize=plt.figaspect(0.5))
 
 
 # %%
@@ -162,7 +162,7 @@ def plotpc(component):
     b = wh(f"PC{component}", 0)
     m = wh(f"PC{component}", 1)
     
-    plt.figure(figsize=(10, 5))
+    plt.figure(figsize=plt.figaspect(0.5))
     plt.scatter(b, [0] * len(b), label="Benign")
     plt.scatter(m, [0] * len(m), label="Malignant")
     
@@ -178,7 +178,7 @@ widgets.interact(
 # We can alter the size of the datapoints according to the third principal component to force an illusion of depth on the chart.
 
 # %%
-plt.figure()
+plt.figure(figsize=plt.figaspect(0.5))
 sns.scatterplot(x=PC_data['PC1'], y=PC_data['PC2'], s=5 * np.exp(6 * PC_data["PC3"]), hue=PC_data['class'])
 plt.show()
 
@@ -187,7 +187,7 @@ plt.show()
 resset = lambda f, l: PC_data[PC_data["class"] == l][f]
 
 # Create a plot and 3d axes
-fig = plt.figure()
+fig = plt.figure(figsize=plt.figaspect(0.5))
 ax = plt.axes(projection="3d")
 
 # Create an artist for each of the benign and malignant cases
@@ -213,5 +213,3 @@ features = ["PC1", "PC2", "PC3", "class"]
 
 # %%
 PC_data[features].to_csv("../data/data-pca.csv", index=False)
-
-# %%
