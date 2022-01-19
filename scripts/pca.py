@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 # ---
 # jupyter:
 #   jupytext:
@@ -145,6 +146,78 @@ widgets.interact(
     data=widgets.fixed(PC_data),
     vectors=widgets.fixed(vectors),
     col_names=widgets.fixed(features),
+    show_data=widgets.Checkbox(value=True),
+    show_vectors=widgets.Checkbox(value=True)
+)
+
+# %%
+# Code for displaying arrows and annotations in 3d 
+# from https://gist.github.com/WetHat/1d6cd0f7309535311a539b42cccca89c
+
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d.proj3d import proj_transform
+from mpl_toolkits.mplot3d.axes3d import Axes3D
+from matplotlib.text import Annotation
+
+class Annotation3D(Annotation):
+
+    def __init__(self, text, xyz, *args, **kwargs):
+        super().__init__(text, xy=(0, 0), *args, **kwargs)
+        self._xyz = xyz
+
+    def draw(self, renderer):
+        x2, y2, z2 = proj_transform(*self._xyz, self.axes.M)
+        self.xy = (x2, y2)
+        super().draw(renderer)
+        
+def _annotate3D(ax, text, xyz, *args, **kwargs):
+    '''Add anotation `text` to an `Axes3d` instance.'''
+
+    annotation = Annotation3D(text, xyz, *args, **kwargs)
+    ax.add_artist(annotation)
+
+setattr(Axes3D, 'annotate3D', _annotate3D)
+
+fig = plt.figure(figsize=plt.figaspect(0.5))
+ax = fig.add_subplot(111, projection='3d')
+
+def plot_axes3d(show_data, show_vectors):
+    plt.cla()
+    
+    # Plot the data
+    wh = lambda f, l: PC_data[PC_data["class"] == l][f]
+    if show_data:
+        ax.scatter(wh("PC1", 0), wh("PC2", 0), wh("PC3", 0), label="Benign", s=1)
+        ax.scatter(wh("PC1", 1), wh("PC2", 1), wh("PC3", 1), label="Malignant", s=1)
+    else:
+        ax.set_xlim(-1, 1)
+        ax.set_ylim(-1, 1)
+        ax.set_zlim(-1, 1)
+    # Plot the vectors
+    origin = (0, 0, 0)
+
+    # Define the end points
+    comp = lambda f: vectors[f, 0:3] 
+    if show_vectors:
+
+        for i, f in enumerate(data.columns[:-1]):
+            v = comp(i)
+            ax.quiver(*origin, *v, label=f)
+            ax.annotate3D(f, v, xytext=(3, 3), textcoords='offset points', fontsize=8)
+
+    ax.set_xlabel('PC1')
+    ax.set_ylabel('PC2')
+    ax.set_zlabel('PC3')
+
+
+    
+    plt.title('Basis vectors in PC space')
+
+    plt.draw()
+    plt.show()
+    
+widgets.interact(
+    plot_axes3d,
     show_data=widgets.Checkbox(value=True),
     show_vectors=widgets.Checkbox(value=True)
 )
