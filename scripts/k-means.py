@@ -368,7 +368,7 @@ c = orig_model.data.corr()
 c.style.background_gradient(cmap="coolwarm")
 
 # %% [markdown]
-# # ROC
+# # Specificity and sensetivity
 
 # %%
 from utility import specificty_sensetivity
