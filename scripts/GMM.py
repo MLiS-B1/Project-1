@@ -381,6 +381,24 @@ widgets.interact(
 )
 
 # %%
+from scipy import stats
+
+means = np.stack([i.mean for i in clusters])
+covs = np.stack([i.cov for i in clusters])
+
+fig, ax = plt.subplots()
+
+for i in gmm_model.clusters:
+    x1 = np.linspace(i.mean[0] - 3 * i.cov[0, 0], i.mean[0] - 3 * i.cov[0, 0], 100)
+    y1 = stats.norm.pdf(x1, i.mean[0], i.cov[0, 0])
+    
+    print(x1)
+    
+    ax.plot(x1, y1)
+    
+plt.show()
+
+# %%
 from utility import transform, recover
 
 # %%

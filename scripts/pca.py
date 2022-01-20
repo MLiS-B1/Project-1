@@ -112,27 +112,27 @@ contributions
 # These contributions can be visualised
 
 # %% tags=[]
-def plot_axes(data, vectors, col_names, show_data, show_vectors):
+def plot_axes(vectors, col_names, show_data, show_vectors):
     origin = np.zeros(2)
     
     plt.figure(figsize=plt.figaspect(0.5))
     
     if show_data:
-        wh = lambda f, l: data[data["class"] == l][f]
+        wh = lambda f, l: PC_data[PC_data["class"] == l][f]
         plt.scatter(wh("PC1", 0), wh("PC2", 0), label="Benign")
         plt.scatter(wh("PC1", 1), wh("PC2", 1), label="Malignant")
 
     plt.scatter(*origin, label="Origin")
         
-    vector_components = lambda comp: np.array([
-        vectors[0, comp],vectors[1, comp]
-    ])
+    comp = lambda f: vectors[f, 0:2] 
+    
     origin = (0, 0)
     if show_vectors:
-        for i in range(vectors.shape[1]):
-            plt.arrow(*origin, *vector_components(i), width=0.01)
-            plt.text(*(1 * vector_components(i)), col_names[i], fontsize=10)
-
+        for i, f in enumerate(data.columns[:-1]):
+            v = comp(i)
+            plt.arrow(*origin, *comp(i), width=0.005)
+            plt.text(*(1 * comp(i)), f, fontsize=10)
+            
     plt.grid()
 
     plt.xlabel("PC1")
@@ -143,7 +143,6 @@ def plot_axes(data, vectors, col_names, show_data, show_vectors):
 
 widgets.interact(
     plot_axes,
-    data=widgets.fixed(PC_data),
     vectors=widgets.fixed(vectors),
     col_names=widgets.fixed(features),
     show_data=widgets.Checkbox(value=True),
