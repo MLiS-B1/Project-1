@@ -17,11 +17,6 @@
 # %% [markdown]
 # # DBSCAN
 
-# %% [markdown] tags=[]
-# # TODO
-#
-# Use N-dimensions in the clustering process
-
 # %%
 # %matplotlib widget
 
@@ -150,10 +145,6 @@ def DBSCAN(d, radius=.25, core_point_threshold=10, verbose=True):
 # %%
 model = DBSCAN(data.values)
 
-# %%
-sns.scatterplot(x=data["PC1"], y=data["PC2"], hue=model)
-plt.show()
-
 # %% [markdown]
 # ## Interactive
 
@@ -172,6 +163,7 @@ for v in np.unique(cluster_matrix):
         label = f"Cluster {int(v)}"
     ax.scatter(data_at_cluster("PC1", v), data_at_cluster("PC2", v), label=label)
 
+plt.title("DBSCAN clustering of PCA data.")
 plt.xlabel("PC1")
 plt.ylabel("PC2")
 plt.legend()
@@ -242,12 +234,13 @@ labels = data["class"].values
 cluster_matrix = DBSCAN(data[features].values, 0.3, 30, verbose=True)
 
 # Re-encode the cluster classes into the features and labels, and remove points the algorithm marks as noise
-cluster_matrix[cluster_matrix == 0] = np.nan
-cluster_matrix[cluster_matrix == 2] = 0
+class_matrix = np.empty(cluster_matrix.shape)
+class_matrix[cluster_matrix == 0] = np.nan
+class_matrix[cluster_matrix == 2] = 0
 
 # Remove the NaN values
-pred_not_nan = cluster_matrix[~np.isnan(cluster_matrix)]
-labels_not_nan = labels[~np.isnan(cluster_matrix)]
+pred_not_nan = class_matrix[~np.isnan(class_matrix)]
+labels_not_nan = labels[~np.isnan(class_matrix)]
 
 # Select the correct encoding for classes
 if np.sum(pred_not_nan == labels_not_nan) / len(pred_not_nan) < 0.5:
@@ -274,12 +267,13 @@ cluster_matrix = DBSCAN(data_orig_feat.values, 5, 7, verbose=True)
 labels = data["class"].values
 
 # Re-encode the cluster classes into the features and labels, and remove points the algorithm marks as noise
-cluster_matrix[cluster_matrix == 0] = np.nan
-cluster_matrix[cluster_matrix == 2] = 0
+class_matrix = np.empty(cluster_matrix.shape)
+class_matrix[cluster_matrix == 0] = np.nan
+class_matrix[cluster_matrix == 2] = 0
 
 # Remove the NaN values
-pred_not_nan = cluster_matrix[~np.isnan(cluster_matrix)]
-labels_not_nan = labels[~np.isnan(cluster_matrix)]
+pred_not_nan = class_matrix[~np.isnan(class_matrix)]
+labels_not_nan = labels[~np.isnan(class_matrix)]
 
 # Select the correct encoding for classes
 if np.sum(pred_not_nan == labels_not_nan) / len(pred_not_nan) < 0.5:
@@ -289,7 +283,7 @@ diff = np.stack((labels_not_nan, pred_not_nan), 1)
 specificty_sensetivity(diff)
 
 # %%
-fig, ax = plt.subplots()
+fig, ax = plt.subplots(figsize=plt.figaspect(.5))
 
 # Use PC1 and PC2 to plot
 features = ["PC1", "PC2"]
@@ -308,6 +302,7 @@ for v in np.unique(cluster_matrix):
         label = f"Cluster {int(v)}"
     ax.scatter(data_at_cluster("PC1", v), data_at_cluster("PC2", v), label=label)
 
+plt.title("DBSCAN clustering of original data.")
 plt.xlabel("PC1")
 plt.ylabel("PC2")
 plt.legend()
@@ -321,10 +316,5 @@ fig.canvas.draw()
 # %%
 data_orig["clusterIndex"] = cluster_matrix
 
-# %%
 sns.scatterplot(x=data_orig[data_orig.columns[0]], hue=cluster_matrix)
-
-# %%
 sns.pairplot(data_orig, hue = 'clusterIndex')
-
-# %%

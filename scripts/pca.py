@@ -73,15 +73,6 @@ values, vectors = np.linalg.eig(covariance)
 # %%
 loading = lambda x: x / np.sum(values)
 
-# %%
-sum([loading(i) for i in values])
-
-# %%
-loading(values[0]) + loading(values[1]) + loading(values[2])
-
-# %%
-loading(values[0])
-
 # %% [markdown]
 # Step 3. Project the centered data onto the eigenvectors of $\Sigma$
 
@@ -102,7 +93,6 @@ contributions = np.apply_along_axis(
     vectors
 )
 
-# %%
 contributions = pd.DataFrame(contributions, columns=features, index=PC_data.columns[:-1])
 contributions.sort_values("PC1", axis=1, ascending=False, inplace=True)
 contributions
@@ -135,6 +125,8 @@ def plot_axes(vectors, col_names, show_data, show_vectors):
             
     plt.grid()
 
+    plt.title("Original feature vectors in the PCA space.")
+    
     plt.xlabel("PC1")
     plt.ylabel("PC2")
     
@@ -222,7 +214,7 @@ widgets.interact(
 )
 
 # %%
-contributions.T.plot.bar(stacked=True, figsize=plt.figaspect(0.5))
+contributions.T.plot.bar(stacked=True, figsize=plt.figaspect(0.5), title="Contribution of each feature to each PC.")
 
 
 # %%
@@ -251,6 +243,7 @@ widgets.interact(
 
 # %%
 plt.figure(figsize=plt.figaspect(0.5))
+plt.title("Data with points scaled proportional to PC3.")
 sns.scatterplot(x=PC_data['PC1'], y=PC_data['PC2'], s=5 * np.exp(6 * PC_data["PC3"]), hue=PC_data['class'])
 plt.show()
 

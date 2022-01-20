@@ -199,8 +199,9 @@ def test_models(data, cluster_range, n_epochs, distance_function="euclidean", ve
         cluster_model.inertia = np.mean(inertias)
         models.append(cluster_model)
     
-    fig, ax = plt.subplots()
+    fig, ax = plt.subplots(figsize=plt.figaspect(.5))
     
+    plt.title("Elbow diagram for PCA data using Euclidean distance.")
     ax.plot(cluster_range, [i.inertia for i in models], marker="o")
     
     ax.set_xlabel("Number of centroids (K)")
@@ -312,8 +313,11 @@ np.sqrt(np.mean((orig_model.centers - pca_centers[:, :]) ** 2))
 # %%
 def interactive_demo(dataset, K, fig, ax, distance="euclidean", colour="class"):
     
-    fig, ax = plt.subplots(figsize=plt.figaspect(0.5))
-
+    plt.cla()
+    
+    ax.set_xlabel("PC1")
+    ax.set_ylabel("PC2")
+    
     
     if dataset == "original":
         data = orig_data
@@ -335,15 +339,19 @@ def interactive_demo(dataset, K, fig, ax, distance="euclidean", colour="class"):
         ax.scatter(ssc("PC1", 0), ssc("PC2", 0), c="orange", label="Benign", s=10)
         ax.scatter(ssc("PC1", 1), ssc("PC2", 1), c="purple", label="Malignant", s=10)
         ax.scatter(model.centers[:, 0], model.centers[:, 1], label="Cluster", marker="X", c="green", s=100)
+        plt.title("K-means applied to PCA data coloured by dataset label.")
     elif colour == "cluster":
         for i, v in enumerate(model.centers):
             ax.scatter(ssg("PC1", i), ssg("PC2", i), label=f"Cluster {i+1}", s=10)
             ax.scatter(v[0], v[1], label=f"Center {i+1}", marker="X", s=100)
+        plt.title("K-means applied to PCA data coloured by cluster membership.")
+
     
     ax.legend()
     fig.canvas.draw()
 
-    
+fig, ax = plt.subplots(figsize=plt.figaspect(0.5))
+
 widgets.interact(
     interactive_demo, 
     dataset=widgets.RadioButtons(
@@ -359,8 +367,8 @@ widgets.interact(
         options=["class", "cluster"],
         description="Colour points by"
     ),
-    fig=widgets.fixed(1),
-    ax=widgets.fixed(1)
+    fig=widgets.fixed(fig),
+    ax=widgets.fixed(ax)
 ); None
 
 # %%

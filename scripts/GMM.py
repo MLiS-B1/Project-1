@@ -14,18 +14,6 @@
 #     name: conda-env-mlis-project-py
 # ---
 
-# %% [markdown]
-# # This text is mostly bullshit, needs rewriting
-
-# %%
-# %matplotlib widget
-
-# %% [markdown] jp-MarkdownHeadingCollapsed=true tags=[]
-# ### todo:
-# - [x] Make the plot interactive to view by point probability
-# - [x] 3d contour plot of the gaussians
-# - Try GMM on the data that have not been preprocessed (will probably fail badly from singluar matrices)
-
 # %% [markdown] jp-MarkdownHeadingCollapsed=true tags=[]
 # # Gaussian Mixture Model
 
@@ -41,6 +29,9 @@
 # - Calculate the weights using the responsibilities
 
 # %%
+# %matplotlib widget
+
+# %%
 import pandas as pd
 import numpy as np
 
@@ -49,6 +40,9 @@ import matplotlib.pyplot as plt
 import ipywidgets as widgets
 
 from functools import partial
+
+# %%
+plt.style.use("seaborn-whitegrid")
 
 # %% [markdown] tags=[]
 # # Data handling
@@ -288,9 +282,6 @@ gmm_model.plot_likelihood()
 # %% [markdown] tags=[]
 # ## Matplotlib functions
 
-# %%
-# Generate partial functions to be used with vectorizing
-
 # %% tags=[]
 # From http://ethen8181.github.io/machine-learning/clustering/GMM/GMM.html
 def plot_gaussians(model, data, ax, resolution=.1, features=["PC1", "PC2"], pc3_coordinate=0, fig=None):
@@ -360,6 +351,10 @@ fig = plt.figure(figsize=plt.figaspect(.5))
 ax1 = fig.add_subplot(1, 2, 1)
 ax2 = fig.add_subplot(1, 2, 2, projection="3d")
 
+ax1.set_xlim(-3, 2)
+ax1.set_ylim(-1.5, 1.25)
+
+
 plot_gaussians(gmm_model, clustering_data, ax1, resolution=.075)
 drawax3d(gmm_model, ax2, resolution=.1, pc3_coordinate=0)
 
@@ -381,37 +376,15 @@ widgets.interact(
 )
 
 # %%
-from scipy import stats
-
-means = np.stack([i.mean for i in clusters])
-covs = np.stack([i.cov for i in clusters])
-
-fig, ax = plt.subplots()
-
-for i in gmm_model.clusters:
-    x1 = np.linspace(i.mean[0] - 3 * i.cov[0, 0], i.mean[0] - 3 * i.cov[0, 0], 100)
-    y1 = stats.norm.pdf(x1, i.mean[0], i.cov[0, 0])
-    
-    print(x1)
-    
-    ax.plot(x1, y1)
-    
-plt.show()
-
-# %%
+# Convert the clusters back into the original data space
+# Pad the other PCs with mean values
 from utility import transform, recover
 
-# %%
 clusters = gmm_model.clusters
 
-# %%
 means = np.stack([i.mean for i in clusters])
 covs = np.stack([i.cov for i in clusters])
 
-# %%
-means.shape
-
-# %%
 means_padded = np.pad(means, ((0, 0), (0, 6))) # pad the values with the column means, 0 
 means_recovered = recover(means_padded)
 means_recovered[1, :]
@@ -445,5 +418,3 @@ labels = data["class"].values
 diff = np.stack((labels, predictions), 1)
 
 specificty_sensetivity(diff)
-
-# %%

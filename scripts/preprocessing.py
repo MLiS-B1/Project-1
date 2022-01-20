@@ -56,28 +56,8 @@ data = pd.read_csv(
 
 data.head()
 
-# %% [markdown]
-# ## Preprocessing steps
-#
-# 1. Data exploration
-#     - [x] Binarize target variable
-#     - [x] Missing values
-#         - [ ] Imputation
-#         - [x] Discard
-#     - [x] [Visualise the ratio of classes](#Visualise-the-ratio-of-classes)
-#     - [x] Look at each feature
-#         - Box plot
-#         - Outliers
-# 2. Normalization
-#     - [x] Not necessary
-# 3. Skewing
-#     - [ ] Measure the skew
-#     - [x] Note that correcting the skew in the features is unnecessary
-# 3. Correlation matrix
-#     - [ ] Analyse the correlation between features and target; features and features
-
 # %% [markdown] jp-MarkdownHeadingCollapsed=true tags=[]
-# # 1. Data exploration
+# # Data exploration
 
 # %% [markdown] tags=[] jp-MarkdownHeadingCollapsed=true
 # ## Binarize the target variable
@@ -218,28 +198,15 @@ widgets.interact(
     box=widgets.fixed(box)
 )
 
-# %% [markdown] tags=[]
-# # 2. Normalization 
-
-# %% [markdown]
-# Normalization is the process by which a distribution is converted into a normal or approximately normal one; centered at $\mu=0$ and scaled to $\sigma=1$. 
-#
-# None of the features in this dataset currently approximate a normal distribution at all; there is a high degree of skew across all the features, with many being bimodal. This is as a result of the design of the scale; 1 represents a low probability of malignancy and 10 represents a high chance. 
-#
-# Due to the design of this dataset, with each feature being ranked on the same scale it is not necessary for distance-based techniques (such as K-Means) to normalize or rescale the features as they already span the same scale.
-
-# %% [markdown] tags=[]
-# # 3. Skew
-
 # %% [markdown] jp-MarkdownHeadingCollapsed=true tags=[]
-# # 4. Correlation Matrix
+# # Correlation Matrix
 
 # %%
 corr = data.corr() #poopoo
 corr.style.background_gradient(cmap='coolwarm')
 
 # %% [markdown] jp-MarkdownHeadingCollapsed=true tags=[]
-# # 5. Export
+# # Export
 
 # %%
 data.to_csv("../data/data-processed.csv", index=False)
